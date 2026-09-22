@@ -24,7 +24,6 @@ void main() {
       final initialNote = Note(
         id: 'editor_test_note',
         title: 'Initial Title',
-        subtitle: 'Initial Subtitle',
         content: 'Initial Content',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -49,13 +48,11 @@ void main() {
 
       // Verify text fields display initial values
       expect(find.text('Initial Title'), findsOneWidget);
-      expect(find.text('Initial Subtitle'), findsOneWidget);
       expect(find.text('Initial Content'), findsOneWidget);
 
-      // Edit title, subtitle, and body
+      // Edit title and body
       await tester.enterText(find.byType(TextField).at(0), 'Reflections on Craft');
-      await tester.enterText(find.byType(TextField).at(1), 'On deliberate practice and stillness');
-      await tester.enterText(find.byType(TextField).at(2), 'True mastery requires deep focus and continuous self-examination.');
+      await tester.enterText(find.byType(TextField).at(1), 'True mastery requires deep focus and continuous self-examination.');
 
       // Wait for debounce autosave timer (600ms)
       await tester.pump(const Duration(milliseconds: 700));
@@ -65,7 +62,6 @@ void main() {
       final updatedNote = await noteRepo.getNote('editor_test_note');
       expect(updatedNote, isNotNull);
       expect(updatedNote!.title, equals('Reflections on Craft'));
-      expect(updatedNote.subtitle, equals('On deliberate practice and stillness'));
       expect(updatedNote.content, equals('True mastery requires deep focus and continuous self-examination.'));
     });
 
@@ -101,7 +97,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 2. Edit content in NoteDetailScreen
-      await tester.enterText(find.byType(TextField).at(2), 'Paragraph 1\nParagraph 2 with new reflections.');
+      await tester.enterText(find.byType(TextField).at(1), 'Paragraph 1\nParagraph 2 with new reflections.');
 
       // 3. Navigate away immediately via back button (triggers safe back save)
       await tester.tap(find.byType(IconButton).first);

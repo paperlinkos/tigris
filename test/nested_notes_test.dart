@@ -236,10 +236,9 @@ void main() {
 
       expect(find.byType(NoteDetailScreen), findsOneWidget);
 
-      // Fill in note title, subtitle, and body
+      // Fill in note title and body
       await tester.enterText(find.byType(TextField).at(0), 'Business');
-      await tester.enterText(find.byType(TextField).at(1), 'Executive Ventures');
-      await tester.enterText(find.byType(TextField).at(2), 'Reflections on strategy');
+      await tester.enterText(find.byType(TextField).at(1), 'Reflections on strategy');
       await tester.pumpAndSettle(const Duration(milliseconds: 700));
 
       // Back to NotesScreen
@@ -248,15 +247,13 @@ void main() {
 
       // 3. Verify note appears in Notes list
       expect(find.text('Business'), findsOneWidget);
-      expect(find.text('Executive Ventures'), findsOneWidget);
 
       // 4. Tap note to open NoteDetailScreen
       await tester.tap(find.text('Business'));
       await tester.pumpAndSettle();
 
       expect(find.text('Reflections on strategy'), findsOneWidget);
-      expect(find.text('CHILD NOTES'), findsOneWidget);
-      expect(find.text('No child notes yet. Tap "+ Add page" to nest a note inside this page.'), findsOneWidget);
+      expect(find.text('Add page'), findsOneWidget);
 
       // 5. Tap "Add page" to create child note directly as full-screen page
       await tester.tap(find.text('Add page'));
@@ -432,7 +429,7 @@ void main() {
 
         // Check NoteDetailScreen for overflow
         expect(tester.takeException(), isNull);
-        expect(find.text('CHILD NOTES'), findsOneWidget);
+        expect(find.text('Add page'), findsOneWidget);
       });
     }
   });

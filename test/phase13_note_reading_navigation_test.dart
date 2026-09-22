@@ -160,7 +160,7 @@ void main() {
 
       expect(find.byType(NoteDetailScreen), findsOneWidget);
       await tester.enterText(find.byType(TextField).at(0), 'Venture 2026');
-      await tester.enterText(find.byType(TextField).at(2), 'Primary company agenda');
+      await tester.enterText(find.byType(TextField).at(1), 'Primary company agenda');
       await tester.pumpAndSettle(const Duration(milliseconds: 700));
 
       // 11. Create child note using subtle "+ Add page" action
@@ -173,7 +173,7 @@ void main() {
       expect(find.text('Venture 2026'), findsOneWidget); // In breadcrumbs
 
       await tester.enterText(find.byType(TextField).at(0), 'Q1 Deliverables');
-      await tester.enterText(find.byType(TextField).at(2), 'Key milestone deadlines');
+      await tester.enterText(find.byType(TextField).at(1), 'Key milestone deadlines');
       await tester.pumpAndSettle(const Duration(milliseconds: 700));
 
       // Navigate back to Venture 2026
