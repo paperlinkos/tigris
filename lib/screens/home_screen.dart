@@ -9,7 +9,6 @@ import '../widgets/home/continue_learning_section.dart';
 import '../widgets/home/recent_notes_section.dart';
 
 import 'note_detail_screen.dart';
-import '../widgets/notes/create_note_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onCreateNote;
@@ -71,23 +70,31 @@ class HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final note = await CreateNoteSheet.show(context);
-    if (note != null && mounted) {
-      final repoScope = RepositoryScope.of(context);
-      await repoScope.noteRepository.saveNote(note);
-      await _loadData();
-      if (mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => NoteDetailScreen(
-              noteId: note.id,
-              initialNote: note,
-            ),
+    final repoScope = RepositoryScope.maybeOf(context);
+    if (repoScope == null) return;
+
+    final note = Note(
+      id: 'note_${DateTime.now().millisecondsSinceEpoch}',
+      title: '',
+      content: '',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await repoScope.noteRepository.saveNote(note);
+    await _loadData();
+    if (mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          settings: RouteSettings(name: '/note/${note.id}'),
+          builder: (context) => NoteDetailScreen(
+            noteId: note.id,
+            initialNote: note,
           ),
-        );
-        if (mounted) {
-          await _loadData();
-        }
+        ),
+      );
+      if (mounted) {
+        await _loadData();
       }
     }
   }
@@ -100,6 +107,7 @@ class HomeScreenState extends State<HomeScreen> {
 
     await Navigator.of(context).push(
       MaterialPageRoute(
+        settings: RouteSettings(name: '/note/${note.id}'),
         builder: (context) => NoteDetailScreen(
           noteId: note.id,
           initialNote: note,

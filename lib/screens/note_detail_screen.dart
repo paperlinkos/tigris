@@ -7,8 +7,6 @@ import '../models/note.dart';
 import '../repositories/note_repository.dart';
 import '../services/local_ai_service.dart';
 import '../widgets/ai/ai_actions_sheet.dart';
-import '../widgets/notes/create_note_sheet.dart';
-import '../widgets/notes/note_list_item.dart';
 
 class NoteDetailScreen extends StatefulWidget {
   final String noteId;
@@ -27,8 +25,11 @@ class NoteDetailScreen extends StatefulWidget {
 }
 
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
+  // Track active note IDs currently in the navigator stack for logical hierarchy pops
+  static final Set<String> _activeNoteIdsInStack = <String>{};
+
   Note? _note;
-  Note? _parentNote;
+  List<Note> _ancestors = [];
   List<Note> _childNotes = [];
   bool _isLoading = true;
 
@@ -46,6 +47,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _activeNoteIdsInStack.add(widget.noteId);
     _note = widget.initialNote;
     _titleController = TextEditingController(text: _note?.title ?? '');
     _subtitleController = TextEditingController(text: _note?.subtitle ?? '');
@@ -58,6 +60,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   @override
   void dispose() {
+    _activeNoteIdsInStack.remove(widget.noteId);
     _debounceTimer?.cancel();
     _titleController.removeListener(_onFieldChanged);
     _subtitleController.removeListener(_onFieldChanged);
@@ -153,15 +156,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       return;
     }
 
-    Note? parent;
-    if (note.parentId != null) {
-      parent = await repo.getNote(note.parentId!);
-    }
-
+    final ancestors = await repo.getAncestorPath(note.id);
     final children = await repo.getChildNotes(note.id);
 
     if (mounted) {
-      // If there are no local unsaved edits, sync controllers with loaded note
       if (!_hasUnsavedChanges) {
         if (_titleController.text != note.title) {
           _titleController.text = note.title;
@@ -177,7 +175,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
       setState(() {
         _note = note;
-        _parentNote = parent;
+        _ancestors = ancestors;
         _childNotes = children;
         _isLoading = false;
       });
@@ -187,17 +185,76 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   Future<void> _addChildPage() async {
     if (_note == null) return;
     await _saveCurrentChanges();
+    final repo = _repo;
+    if (repo == null || !mounted) return;
 
-    if (!mounted) return;
-    final created = await CreateNoteSheet.show(
-      context,
+    final newChild = Note(
+      id: 'note_${DateTime.now().millisecondsSinceEpoch}',
       parentId: _note!.id,
-      parentTitle: _note!.title,
+      title: '',
+      content: '',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
 
-    final repo = _repo;
-    if (created != null && repo != null && mounted) {
-      await repo.saveNote(created);
+    await repo.saveNote(newChild);
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        settings: RouteSettings(name: '/note/${newChild.id}'),
+        builder: (context) => NoteDetailScreen(
+          noteId: newChild.id,
+          initialNote: newChild,
+          noteRepository: repo,
+        ),
+      ),
+    );
+
+    if (mounted) {
+      await _loadNoteData();
+    }
+  }
+
+  Future<void> _navigateToAncestor(Note ancestor) async {
+    await _saveCurrentChanges();
+    if (!mounted) return;
+
+    if (_activeNoteIdsInStack.contains(ancestor.id)) {
+      Navigator.of(context).popUntil((route) => route.settings.name == '/note/${ancestor.id}');
+    } else {
+      final updated = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          settings: RouteSettings(name: '/note/${ancestor.id}'),
+          builder: (context) => NoteDetailScreen(
+            noteId: ancestor.id,
+            initialNote: ancestor,
+            noteRepository: _repo,
+          ),
+        ),
+      );
+      if (updated == true && mounted) {
+        await _loadNoteData();
+      }
+    }
+  }
+
+  Future<void> _openChildNote(Note child) async {
+    await _saveCurrentChanges();
+    if (!mounted) return;
+
+    final deleted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        settings: RouteSettings(name: '/note/${child.id}'),
+        builder: (context) => NoteDetailScreen(
+          noteId: child.id,
+          initialNote: child,
+          noteRepository: _repo,
+        ),
+      ),
+    );
+
+    if (deleted == true && mounted) {
       await _loadNoteData();
     }
   }
@@ -274,25 +331,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     }
   }
 
-  Future<void> _openChildNote(Note child) async {
-    await _saveCurrentChanges();
-    if (!mounted) return;
-
-    final deleted = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (context) => NoteDetailScreen(
-          noteId: child.id,
-          initialNote: child,
-          noteRepository: _repo,
-        ),
-      ),
-    );
-
-    if (deleted == true && mounted) {
-      await _loadNoteData();
-    }
-  }
-
   Future<void> _openAiActions() async {
     if (_note == null) return;
     final aiService = RepositoryScope.maybeOf(context)?.aiService ?? const LocalAiService();
@@ -362,17 +400,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             color: AppColors.textPrimary,
             onPressed: _handleBack,
           ),
-          title: _parentNote != null
-              ? Text(
-                  _parentNote!.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.uiLabel(
-                    fontSize: 13.0,
-                    color: AppColors.textTertiary,
-                  ),
-                )
-              : null,
           centerTitle: false,
           actions: [
             if (_isSaving)
@@ -415,15 +442,18 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         ),
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Breadcrumbs navigation (if note has ancestors)
+                _buildBreadcrumbs(),
+
                 // Digital Page Title Editor
                 TextField(
                   controller: _titleController,
                   style: AppTypography.display(
-                    fontSize: 28.0,
+                    fontSize: 30.0,
                     color: AppColors.textPrimary,
                   ),
                   decoration: const InputDecoration(
@@ -460,7 +490,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   textCapitalization: TextCapitalization.sentences,
                 ),
 
-                const SizedBox(height: 24.0),
+                const SizedBox(height: 20.0),
                 const Divider(color: AppColors.borderSubtle, height: 1.0),
                 const SizedBox(height: 24.0),
 
@@ -468,7 +498,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 TextField(
                   controller: _contentController,
                   style: AppTypography.body(
-                    fontSize: 16.0,
+                    fontSize: 17.0,
                     color: AppColors.textPrimary,
                   ),
                   decoration: const InputDecoration(
@@ -486,74 +516,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
                 const SizedBox(height: 48.0),
 
-                // Child subpages section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'SUBPAGES',
-                      style: AppTypography.uiLabel(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ).copyWith(letterSpacing: 1.2),
-                    ),
-                    InkWell(
-                      onTap: _addChildPage,
-                      borderRadius: BorderRadius.circular(6.0),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.add, size: 16.0, color: AppColors.textPrimary),
-                            const SizedBox(width: 4.0),
-                            Text(
-                              'Add page',
-                              style: AppTypography.uiHeadline(
-                                fontSize: 13.0,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12.0),
-
-                // Child pages list or calm empty state
-                if (_childNotes.isEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    child: Text(
-                      'No subpages yet. Tap "Add page" to nest notes inside this one.',
-                      style: AppTypography.subtitle(
-                        fontSize: 13.5,
-                        color: AppColors.textTertiary,
-                      ),
-                    ),
-                  ),
-                ] else ...[
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _childNotes.length,
-                    separatorBuilder: (context, index) => const Divider(
-                      color: AppColors.borderSubtle,
-                      height: 1.0,
-                    ),
-                    itemBuilder: (context, index) {
-                      final child = _childNotes[index];
-                      return NoteListItem(
-                        note: child,
-                        onTap: () => _openChildNote(child),
-                      );
-                    },
-                  ),
-                ],
+                // Child notes section
+                _buildChildNotesSection(),
 
                 const SizedBox(height: 56.0),
               ],
@@ -561,6 +525,152 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBreadcrumbs() {
+    if (_ancestors.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14.0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (int i = 0; i < _ancestors.length; i++) ...[
+              if (i > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                  child: Text(
+                    '/',
+                    style: AppTypography.uiLabel(
+                      fontSize: 13.0,
+                      color: AppColors.textTertiary,
+                    ),
+                  ),
+                ),
+              InkWell(
+                onTap: () => _navigateToAncestor(_ancestors[i]),
+                borderRadius: BorderRadius.circular(4.0),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                  child: Text(
+                    _ancestors[i].title.isEmpty ? 'Untitled' : _ancestors[i].title,
+                    style: AppTypography.uiLabel(
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChildNotesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'CHILD NOTES',
+              style: AppTypography.uiLabel(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textTertiary,
+              ).copyWith(letterSpacing: 1.2),
+            ),
+            InkWell(
+              onTap: _addChildPage,
+              borderRadius: BorderRadius.circular(4.0),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add, size: 15.0, color: AppColors.textPrimary),
+                    const SizedBox(width: 4.0),
+                    Text(
+                      'Add page',
+                      style: AppTypography.uiHeadline(
+                        fontSize: 13.0,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12.0),
+        if (_childNotes.isEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12.0),
+            child: Text(
+              'No child notes yet. Tap "+ Add page" to nest a note inside this page.',
+              style: AppTypography.subtitle(
+                fontSize: 13.5,
+                color: AppColors.textTertiary,
+              ),
+            ),
+          ),
+        ] else ...[
+          for (final child in _childNotes)
+            InkWell(
+              onTap: () => _openChildNote(child),
+              borderRadius: BorderRadius.circular(6.0),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            child.title.isEmpty ? 'Untitled' : child.title,
+                            style: AppTypography.subtitle(
+                              fontSize: 16.0,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          if (child.subtitle != null && child.subtitle!.isNotEmpty) ...[
+                            const SizedBox(height: 2.0),
+                            Text(
+                              child.subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.body(
+                                fontSize: 13.0,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 13.0,
+                      color: AppColors.textTertiary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ],
     );
   }
 }

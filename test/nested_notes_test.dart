@@ -10,6 +10,7 @@ import 'package:tigris/repositories/local_note_repository.dart';
 import 'package:tigris/repositories/local_review_repository.dart';
 import 'package:tigris/screens/home_screen.dart';
 import 'package:tigris/screens/notes_screen.dart';
+import 'package:tigris/screens/note_detail_screen.dart';
 
 void main() {
   setUp(() {
@@ -229,17 +230,20 @@ void main() {
       expect(find.text('All thoughts start here.'), findsOneWidget);
       expect(find.text('Create a note to begin.'), findsOneWidget);
 
-      // 2. Tap "New note" to open CreateNoteSheet
+      // 2. Tap "New note" to open full-screen note page directly
       await tester.tap(find.text('New note').first);
       await tester.pumpAndSettle();
 
-      expect(find.text('NEW NOTE'), findsOneWidget);
+      expect(find.byType(NoteDetailScreen), findsOneWidget);
 
-      // Fill in note title and subtitle
-      await tester.enterText(find.byType(TextFormField).at(0), 'Business');
-      await tester.enterText(find.byType(TextFormField).at(1), 'Executive Ventures');
-      await tester.enterText(find.byType(TextFormField).at(2), 'Reflections on strategy');
-      await tester.tap(find.text('Create'));
+      // Fill in note title, subtitle, and body
+      await tester.enterText(find.byType(TextField).at(0), 'Business');
+      await tester.enterText(find.byType(TextField).at(1), 'Executive Ventures');
+      await tester.enterText(find.byType(TextField).at(2), 'Reflections on strategy');
+      await tester.pumpAndSettle(const Duration(milliseconds: 700));
+
+      // Back to NotesScreen
+      await tester.tap(find.byType(IconButton).first);
       await tester.pumpAndSettle();
 
       // 3. Verify note appears in Notes list
@@ -251,31 +255,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Reflections on strategy'), findsOneWidget);
-      expect(find.text('SUBPAGES'), findsOneWidget);
-      expect(find.text('No subpages yet. Tap "Add page" to nest notes inside this one.'), findsOneWidget);
+      expect(find.text('CHILD NOTES'), findsOneWidget);
+      expect(find.text('No child notes yet. Tap "+ Add page" to nest a note inside this page.'), findsOneWidget);
 
-      // 5. Tap "Add page" to create child note
+      // 5. Tap "Add page" to create child note directly as full-screen page
       await tester.tap(find.text('Add page'));
       await tester.pumpAndSettle();
 
-      expect(find.text('NEW PAGE'), findsOneWidget);
-      expect(find.text('in Business'), findsOneWidget);
+      expect(find.byType(NoteDetailScreen), findsOneWidget);
+      // Breadcrumb displays parent 'Business'
+      expect(find.text('Business'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextFormField).at(0), 'Smart Q Estates');
-      await tester.tap(find.text('Create'));
-      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'Smart Q Estates');
+      await tester.pumpAndSettle(const Duration(milliseconds: 700));
 
-      // Verify child note is displayed in subpages
-      expect(find.text('Smart Q Estates'), findsOneWidget);
-
-      // 6. Navigate to child note (grandchild level)
-      await tester.tap(find.text('Smart Q Estates'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Business'), findsOneWidget); // AppBar parent context
-      expect(find.text('Smart Q Estates'), findsOneWidget); // Note title
-
-      // 7. Navigate back up to parent
+      // 6. Navigate back up to parent
       await tester.tap(find.byType(IconButton).first);
       await tester.pumpAndSettle();
 
@@ -438,7 +432,7 @@ void main() {
 
         // Check NoteDetailScreen for overflow
         expect(tester.takeException(), isNull);
-        expect(find.text('SUBPAGES'), findsOneWidget);
+        expect(find.text('CHILD NOTES'), findsOneWidget);
       });
     }
   });

@@ -7,6 +7,7 @@ abstract class NoteRepository {
   Future<List<Note>> getChildNotes(String parentId);
   Future<List<Note>> getRecentNotes({int limit = 10});
   Future<List<Note>> searchNotes(String query);
+  Future<List<Note>> getAncestorPath(String noteId);
   Future<void> saveNote(Note note);
   Future<void> deleteNote(String id);
 }

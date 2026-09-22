@@ -72,6 +72,26 @@ class LocalNoteRepository implements NoteRepository {
   }
 
   @override
+  Future<List<Note>> getAncestorPath(String noteId) async {
+    final note = await getNote(noteId);
+    if (note == null || note.parentId == null) return [];
+
+    final ancestors = <Note>[];
+    final visited = <String>{note.id};
+    String? currentParentId = note.parentId;
+
+    while (currentParentId != null && !visited.contains(currentParentId)) {
+      visited.add(currentParentId);
+      final parent = await getNote(currentParentId);
+      if (parent == null) break;
+      ancestors.insert(0, parent);
+      currentParentId = parent.parentId;
+    }
+
+    return ancestors;
+  }
+
+  @override
   Future<void> saveNote(Note note) async {
     // If note has a parent, ensure child ID is present in parent's childrenIds list
     if (note.parentId != null) {

@@ -5,7 +5,6 @@ import '../app/theme/app_typography.dart';
 import '../models/note.dart';
 import '../repositories/note_repository.dart';
 import '../widgets/calm_scaffold.dart';
-import '../widgets/notes/create_note_sheet.dart';
 import '../widgets/notes/note_list_item.dart';
 import 'note_detail_screen.dart';
 
@@ -94,17 +93,40 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 
   Future<void> _createRootNote() async {
-    final note = await CreateNoteSheet.show(context);
     final repo = _repo;
-    if (note != null && repo != null && mounted) {
-      await repo.saveNote(note);
-      await _loadRootNotes();
+    if (repo == null) return;
+
+    final newNote = Note(
+      id: 'note_${DateTime.now().millisecondsSinceEpoch}',
+      title: '',
+      content: '',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await repo.saveNote(newNote);
+
+    if (mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          settings: RouteSettings(name: '/note/${newNote.id}'),
+          builder: (context) => NoteDetailScreen(
+            noteId: newNote.id,
+            initialNote: newNote,
+            noteRepository: repo,
+          ),
+        ),
+      );
+      if (mounted) {
+        await _loadRootNotes();
+      }
     }
   }
 
   Future<void> _openNote(Note note) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
+        settings: RouteSettings(name: '/note/${note.id}'),
         builder: (context) => NoteDetailScreen(
           noteId: note.id,
           initialNote: note,

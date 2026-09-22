@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import '../di/repository_scope.dart';
+import '../../models/note.dart';
 import '../../persistence/storage_interface.dart';
 import '../../persistence/preferences_storage.dart';
 import '../../repositories/flashcard_repository.dart';
@@ -17,7 +18,6 @@ import '../../screens/notes_screen.dart';
 import '../../screens/note_detail_screen.dart';
 import '../../screens/review_session_screen.dart';
 import '../../screens/settings_screen.dart';
-import '../../widgets/notes/create_note_sheet.dart';
 
 class AppShell extends StatefulWidget {
   final StorageInterface? storage;
@@ -58,27 +58,34 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _handleCreateNote() async {
-    final note = await CreateNoteSheet.show(context);
-    if (note != null && mounted) {
-      await _noteRepository.saveNote(note);
-      _homeKey.currentState?.reload();
-      if (mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => RepositoryScope(
-              noteRepository: _noteRepository,
-              reviewRepository: _reviewRepository,
-              flashcardRepository: _flashcardRepository,
-              quizRepository: _quizRepository,
-              child: NoteDetailScreen(
-                noteId: note.id,
-                initialNote: note,
-              ),
+    final newNote = Note(
+      id: 'note_${DateTime.now().millisecondsSinceEpoch}',
+      title: '',
+      content: '',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await _noteRepository.saveNote(newNote);
+    _homeKey.currentState?.reload();
+
+    if (mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          settings: RouteSettings(name: '/note/${newNote.id}'),
+          builder: (context) => RepositoryScope(
+            noteRepository: _noteRepository,
+            reviewRepository: _reviewRepository,
+            flashcardRepository: _flashcardRepository,
+            quizRepository: _quizRepository,
+            child: NoteDetailScreen(
+              noteId: newNote.id,
+              initialNote: newNote,
             ),
           ),
-        );
-        _homeKey.currentState?.reload();
-      }
+        ),
+      );
+      _homeKey.currentState?.reload();
     }
   }
 

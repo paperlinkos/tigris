@@ -119,14 +119,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Paragraph 1\nParagraph 2 with new reflections.'), findsOneWidget);
 
-      // 6. Edit title and add child page from inside editor
+      // 6. Edit title and add child page from inside editor (full-screen page)
       await tester.enterText(find.byType(TextField).at(0), 'Published Mastery');
       await tester.tap(find.text('Add page'));
       await tester.pumpAndSettle();
 
-      expect(find.text('NEW PAGE'), findsOneWidget);
-      await tester.enterText(find.byType(TextFormField).at(0), 'Sub-discipline 1');
-      await tester.tap(find.text('Create'));
+      expect(find.byType(NoteDetailScreen), findsOneWidget);
+      await tester.enterText(find.byType(TextField).at(0), 'Sub-discipline 1');
+      await tester.pumpAndSettle(const Duration(milliseconds: 700));
+
+      // Return from subpage
+      await tester.tap(find.byType(IconButton).first);
       await tester.pumpAndSettle();
 
       // Verify subpage appears beneath content
