@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_typography.dart';
+import '../../app/theme/context_theme_extensions.dart';
 import '../../models/note.dart';
 
 class NoteListItem extends StatelessWidget {
@@ -16,6 +16,10 @@ class NoteListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final childCount = note.childrenIds.length;
+    final trimmedContent = note.content.trim();
+    final previewContent = trimmedContent.isNotEmpty
+        ? trimmedContent.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => '').trim()
+        : (note.subtitle ?? '');
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48.0),
@@ -35,16 +39,18 @@ class NoteListItem extends StatelessWidget {
                       note.title.isNotEmpty ? note.title : 'Untitled',
                       style: AppTypography.title(
                         fontSize: 18.0,
-                        color: AppColors.textPrimary,
+                        color: context.appTextPrimary,
                       ),
                     ),
-                    if (note.subtitle != null && note.subtitle!.isNotEmpty) ...[
+                    if (previewContent.isNotEmpty) ...[
                       const SizedBox(height: 3.0),
                       Text(
-                        note.subtitle!,
+                        previewContent,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTypography.subtitle(
                           fontSize: 13.5,
-                          color: AppColors.textSecondary,
+                          color: context.appTextSecondary,
                         ),
                       ),
                     ],
@@ -59,18 +65,18 @@ class NoteListItem extends StatelessWidget {
                     '$childCount ${childCount == 1 ? 'page' : 'pages'}',
                     style: AppTypography.uiLabel(
                       fontSize: 12.0,
-                      color: AppColors.textTertiary,
+                      color: context.appTextTertiary,
                     ),
                   ),
                 ),
               ],
               const SizedBox(width: 8.0),
-              const Padding(
-                padding: EdgeInsets.only(top: 5.0),
+              Padding(
+                padding: const EdgeInsets.only(top: 5.0),
                 child: Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 11.0,
-                  color: AppColors.textTertiary,
+                  color: context.appTextTertiary,
                 ),
               ),
             ],
@@ -80,3 +86,4 @@ class NoteListItem extends StatelessWidget {
     );
   }
 }
+

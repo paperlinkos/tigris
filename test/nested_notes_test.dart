@@ -372,9 +372,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('RECENT NOTES'), findsOneWidget);
-      expect(find.text('Recent Thought A'), findsNWidgets(2)); // continue learning + recent
-      expect(find.text('Updated today'), findsNWidgets(2));
+      expect(find.text('NOTES'), findsOneWidget);
+      expect(find.text('Recent Thought A'), findsNWidgets(2)); // square card + recent notes item
     });
   });
 

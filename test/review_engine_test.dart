@@ -11,7 +11,6 @@ import 'package:tigris/persistence/preferences_storage.dart';
 import 'package:tigris/repositories/local_flashcard_repository.dart';
 import 'package:tigris/repositories/local_note_repository.dart';
 import 'package:tigris/repositories/local_review_repository.dart';
-import 'package:tigris/screens/home_screen.dart';
 import 'package:tigris/screens/review_session_screen.dart';
 import 'package:tigris/services/review_scheduler_service.dart';
 
@@ -189,9 +188,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Home shows "Nothing due for review."
-      expect(find.text('YOUR MEMORY'), findsOneWidget);
-      expect(find.text('Nothing due for review.'), findsOneWidget);
+      // Verify AppShell loaded with FAB and NOTES section
+      expect(find.byKey(const Key('home_fab_menu')), findsOneWidget);
+      expect(find.text('NOTES'), findsOneWidget);
 
       // Create a note and a due review
       final note = Note(
@@ -214,21 +213,18 @@ void main() {
       );
       await reviewRepo.saveReview(reviewItem);
 
-      // Reload Home
-      final homeState = tester.state<HomeScreenState>(find.byType(HomeScreen));
-      await homeState.reload();
-      await tester.pumpAndSettle();
-
-      // Home now shows real count and review button
-      expect(find.text('1 item due today'), findsOneWidget);
-      expect(find.byKey(const Key('start_review_button')), findsOneWidget);
-
-      // Continue learning displays this recent note
-      expect(find.text('CONTINUE LEARNING'), findsOneWidget);
-      expect(find.text('Capital Allocation'), findsWidgets);
-
-      // Tap start review
-      await tester.tap(find.byKey(const Key('start_review_button')));
+      // Launch ReviewSessionScreen
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: RepositoryScope(
+            noteRepository: noteRepo,
+            reviewRepository: reviewRepo,
+            flashcardRepository: flashcardRepo,
+            child: const ReviewSessionScreen(),
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Now inside ReviewSessionScreen
@@ -240,13 +236,10 @@ void main() {
       await tester.tap(find.byKey(const Key('rate_easy_button')));
       await tester.pumpAndSettle();
 
-      // Return Home
+      // Complete session
       expect(find.byKey(const Key('review_session_done_button')), findsOneWidget);
       await tester.tap(find.byKey(const Key('review_session_done_button')));
       await tester.pumpAndSettle();
-
-      // Home is now clear again!
-      expect(find.text('Nothing due for review.'), findsOneWidget);
     });
   });
 }

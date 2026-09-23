@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tigris/main.dart';
@@ -13,32 +14,28 @@ void main() {
   });
 
   group('App Shell Smoke & Navigation Tests', () {
-    testWidgets('App shell loads Review home by default with Phase 1 structure', (WidgetTester tester) async {
+    testWidgets('App shell loads Home with sidebar navigation', (WidgetTester tester) async {
       await tester.pumpWidget(const PersonalLearningApp());
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Good '), findsOneWidget);
-      expect(find.text('New note'), findsOneWidget);
-      expect(find.text('YOUR MEMORY'), findsOneWidget);
-      expect(find.text('Nothing due for review.'), findsOneWidget);
-      expect(find.text('RECENT NOTES'), findsOneWidget);
-      expect(find.text('Review'), findsOneWidget);
-      expect(find.text('Notes'), findsOneWidget);
-      expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('Notes'), findsWidgets);
+      expect(find.byKey(const Key('home_fab_menu')), findsOneWidget);
+      expect(find.byKey(const Key('sidebar_toggle_button')), findsOneWidget);
+      expect(find.text('NOTES'), findsOneWidget);
     });
 
-    testWidgets('Can navigate to Notes and Settings screens', (WidgetTester tester) async {
+    testWidgets('Can open sidebar drawer and navigate to Settings', (WidgetTester tester) async {
       await tester.pumpWidget(const PersonalLearningApp());
-      await tester.pump();
-
-      // Tap on Notes nav tab
-      await tester.tap(find.text('Notes'));
       await tester.pumpAndSettle();
 
-      expect(find.text('NOTES'), findsOneWidget);
-      expect(find.text('All thoughts start here.'), findsOneWidget);
+      // Tap sidebar toggle button to open drawer
+      await tester.tap(find.byKey(const Key('sidebar_toggle_button')));
+      await tester.pumpAndSettle();
 
-      // Tap on Settings nav tab
+      expect(find.text('Streams'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
+
+      // Tap on Settings in sidebar drawer
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
 

@@ -5,6 +5,7 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.background,
       colorScheme: const ColorScheme.light(
         surface: AppColors.surface,
@@ -34,6 +35,42 @@ class AppTheme {
       ),
       splashColor: Colors.transparent,
       highlightColor: AppColors.surfaceSubtle,
+    );
+  }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: AppColors.darkBackground,
+      colorScheme: const ColorScheme.dark(
+        surface: AppColors.darkSurface,
+        primary: AppColors.darkTextPrimary,
+        secondary: AppColors.darkTextSecondary,
+        outline: AppColors.darkBorder,
+      ),
+      dividerColor: AppColors.darkBorderSubtle,
+      dividerTheme: const DividerThemeData(
+        color: AppColors.darkBorderSubtle,
+        thickness: 1.0,
+        space: 1.0,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.darkBackground,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        iconTheme: IconThemeData(
+          color: AppColors.darkTextPrimary,
+          size: 20.0,
+        ),
+      ),
+      iconTheme: const IconThemeData(
+        color: AppColors.darkTextPrimary,
+        size: 20.0,
+      ),
+      splashColor: Colors.transparent,
+      highlightColor: AppColors.darkSurfaceSubtle,
     );
   }
 }

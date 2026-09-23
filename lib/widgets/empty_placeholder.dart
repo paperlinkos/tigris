@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../app/theme/app_colors.dart';
 import '../app/theme/app_typography.dart';
+import '../app/theme/context_theme_extensions.dart';
 
 class EmptyPlaceholder extends StatelessWidget {
   final String title;
@@ -29,7 +29,7 @@ class EmptyPlaceholder extends StatelessWidget {
               title,
               style: AppTypography.display(
                 fontSize: 30.0,
-                color: AppColors.textPrimary,
+                color: context.appTextPrimary,
               ),
             ),
             const SizedBox(height: 14.0),
@@ -37,7 +37,7 @@ class EmptyPlaceholder extends StatelessWidget {
               description,
               style: AppTypography.subtitle(
                 fontSize: 16.0,
-                color: AppColors.textSecondary,
+                color: context.appTextSecondary,
               ),
             ),
             if (actionLabel != null && onAction != null) ...[
@@ -46,8 +46,8 @@ class EmptyPlaceholder extends StatelessWidget {
                 constraints: const BoxConstraints(minHeight: 52.0),
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.border, width: 1.2),
+                    foregroundColor: context.appTextPrimary,
+                    side: BorderSide(color: context.appBorder, width: 1.2),
                     padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12.0),
@@ -70,3 +70,4 @@ class EmptyPlaceholder extends StatelessWidget {
     );
   }
 }
+

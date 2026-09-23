@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyCICDXb2JOv3HkZ5HRKa41bo1Qr68nyBoU</string>
+	<key>GCM_SENDER_ID</key>
+	<string>544154185532</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.personal.learning.tigris</string>
+	<key>PROJECT_ID</key>
+	<string>tigris-notes-app</string>
+	<key>STORAGE_BUCKET</key>
+	<string>tigris-notes-app.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>CLIENT_ID</key>
+	<string>544154185532-ios332c936c7241167a6bb839.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.544154185532-ios332c936c7241167a6bb839</string>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:544154185532:ios:332c936c7241167a6bb839</string>
+</dict>
+</plist>

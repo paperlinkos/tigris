@@ -44,11 +44,12 @@ class AiActionsSheet extends StatefulWidget {
     void Function(List<Flashcard>)? onFlashcardsGenerated,
     void Function(List<QuizQuestion>)? onQuizGenerated,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.background,
-      barrierColor: AppColors.textPrimary.withValues(alpha: 0.2),
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
+      barrierColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
       ),

@@ -39,11 +39,15 @@ class MemoryReviewSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6.0),
-          Text(
-            'Ideas scheduled for active recall will surface here.',
-            style: AppTypography.subtitle(
-              fontSize: 14.5,
-              color: AppColors.textSecondary,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Ideas scheduled for active recall will surface here.',
+              style: AppTypography.subtitle(
+                fontSize: 14.5,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ] else ...[

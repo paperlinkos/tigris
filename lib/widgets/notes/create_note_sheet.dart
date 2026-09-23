@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_typography.dart';
+import '../../app/theme/context_theme_extensions.dart';
 import '../../models/note.dart';
 
 class CreateNoteSheet extends StatefulWidget {
@@ -18,11 +19,12 @@ class CreateNoteSheet extends StatefulWidget {
     String? parentId,
     String? parentTitle,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return showModalBottomSheet<Note>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.background,
-      barrierColor: AppColors.textPrimary.withValues(alpha: 0.2),
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
+      barrierColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
       ),
@@ -98,7 +100,7 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                   height: 4.0,
                   margin: const EdgeInsets.only(bottom: 16.0),
                   decoration: BoxDecoration(
-                    color: AppColors.borderSubtle,
+                    color: context.appBorderSubtle,
                     borderRadius: BorderRadius.circular(2.0),
                   ),
                 ),
@@ -116,7 +118,7 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                         style: AppTypography.uiLabel(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
+                          color: context.appTextSecondary,
                         ).copyWith(letterSpacing: 1.2),
                       ),
                       if (widget.parentTitle != null) ...[
@@ -125,7 +127,7 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                           'in ${widget.parentTitle}',
                           style: AppTypography.uiLabel(
                             fontSize: 12.0,
-                            color: AppColors.textTertiary,
+                            color: context.appTextTertiary,
                           ),
                         ),
                       ],
@@ -134,7 +136,7 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded, size: 20.0),
-                    color: AppColors.textSecondary,
+                    color: context.appTextSecondary,
                     splashRadius: 20.0,
                   ),
                 ],
@@ -147,13 +149,13 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                 autofocus: true,
                 style: AppTypography.title(
                   fontSize: 20.0,
-                  color: AppColors.textPrimary,
+                  color: context.appTextPrimary,
                 ),
                 decoration: InputDecoration(
                   hintText: isChild ? 'Page title' : 'Note title',
                   hintStyle: AppTypography.title(
                     fontSize: 20.0,
-                    color: AppColors.textTertiary,
+                    color: context.appTextTertiary,
                   ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
@@ -161,7 +163,7 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 12.0),
-              const Divider(color: AppColors.borderSubtle, height: 1.0),
+              Divider(color: context.appBorderSubtle, height: 1.0),
               const SizedBox(height: 12.0),
 
               // Subtitle input (optional)
@@ -169,13 +171,13 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                 controller: _subtitleController,
                 style: AppTypography.subtitle(
                   fontSize: 14.5,
-                  color: AppColors.textSecondary,
+                  color: context.appTextSecondary,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Subtitle (optional)',
                   hintStyle: AppTypography.subtitle(
                     fontSize: 14.5,
-                    color: AppColors.textTertiary,
+                    color: context.appTextTertiary,
                   ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
@@ -183,7 +185,7 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 12.0),
-              const Divider(color: AppColors.borderSubtle, height: 1.0),
+              Divider(color: context.appBorderSubtle, height: 1.0),
               const SizedBox(height: 12.0),
 
               // Content / Thought input (optional)
@@ -193,13 +195,13 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                 minLines: 2,
                 style: AppTypography.body(
                   fontSize: 15.0,
-                  color: AppColors.textPrimary,
+                  color: context.appTextPrimary,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Initial thoughts or notes (optional)...',
                   hintStyle: AppTypography.body(
                     fontSize: 15.0,
-                    color: AppColors.textTertiary,
+                    color: context.appTextTertiary,
                   ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
@@ -215,14 +217,14 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
+                      foregroundColor: context.appTextSecondary,
                       minimumSize: const Size(64.0, 48.0),
                     ),
                     child: Text(
                       'Cancel',
                       style: AppTypography.uiLabel(
                         fontSize: 14.0,
-                        color: AppColors.textSecondary,
+                        color: context.appTextSecondary,
                       ),
                     ),
                   ),
@@ -230,8 +232,8 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                   ElevatedButton(
                     onPressed: _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.textPrimary,
-                      foregroundColor: AppColors.background,
+                      backgroundColor: context.appTextPrimary,
+                      foregroundColor: context.appBg,
                       elevation: 0,
                       minimumSize: const Size(88.0, 48.0),
                       shape: RoundedRectangleBorder(
@@ -242,7 +244,7 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
                       'Create',
                       style: AppTypography.uiHeadline(
                         fontSize: 14.0,
-                        color: AppColors.background,
+                        color: context.appBg,
                       ),
                     ),
                   ),
@@ -255,3 +257,4 @@ class _CreateNoteSheetState extends State<CreateNoteSheet> {
     );
   }
 }
+

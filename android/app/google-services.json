@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "544154185532",
+    "project_id": "tigris-notes-app",
+    "storage_bucket": "tigris-notes-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:544154185532:android:8533cf7bce9641ac6bb839",
+        "android_client_info": {
+          "package_name": "com.example.tigris"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsXY5CivDeDJ5Rz91SIHLuuxx2L0uo108"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:544154185532:android:44857d3a4ff4723c6bb839",
+        "android_client_info": {
+          "package_name": "com.personal.learning.tigris"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsXY5CivDeDJ5Rz91SIHLuuxx2L0uo108"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

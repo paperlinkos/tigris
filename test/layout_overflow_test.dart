@@ -20,23 +20,23 @@ void main() {
       tester.view.physicalSize = entry.value;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
       await tester.pumpWidget(const PersonalLearningApp());
       await tester.pumpAndSettle();
 
-      // Verify Home Review tab has no overflow
-      expect(tester.takeException(), isNull);
-      expect(find.text('YOUR MEMORY'), findsOneWidget);
-      expect(find.text('RECENT NOTES'), findsOneWidget);
+      final exception = tester.takeException();
+      if (exception is FlutterError) {
+        debugPrint(exception.toStringDeep());
+      }
+      expect(exception, isNull);
+      expect(find.text('NOTES'), findsWidgets);
 
-      // Verify Notes tab has no overflow
-      await tester.tap(find.text('Notes'));
+      // Open sidebar drawer and verify no overflow
+      await tester.tap(find.byKey(const Key('sidebar_toggle_button')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('NOTES'), findsOneWidget);
+      expect(find.text('Streams'), findsOneWidget);
 
-      // Verify Settings tab has no overflow
+      // Verify Settings in sidebar drawer
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

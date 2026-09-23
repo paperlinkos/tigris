@@ -122,7 +122,7 @@ void main() {
       // Verify search results header and item
       expect(find.text('1 RESULT'), findsOneWidget);
       expect(find.text('Smart Q Estates'), findsOneWidget);
-      expect(find.text('PropTech platform'), findsOneWidget);
+      expect(find.text('Service apartments reservation infrastructure.'), findsOneWidget);
 
       // Tap search result to open NoteDetailScreen
       await tester.tap(find.text('Smart Q Estates'));

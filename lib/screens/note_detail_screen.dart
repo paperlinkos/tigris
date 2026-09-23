@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app/di/repository_scope.dart';
 import '../app/theme/app_colors.dart';
 import '../app/theme/app_typography.dart';
+import '../app/theme/context_theme_extensions.dart';
+import '../controllers/rich_text_editing_controller.dart';
 import '../models/note.dart';
 import '../repositories/note_repository.dart';
 import '../services/local_ai_service.dart';
@@ -34,7 +36,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   bool _isLoading = true;
 
   late final TextEditingController _titleController;
-  late final TextEditingController _contentController;
+  late final SmartListController _contentController;
+  final FocusNode _titleFocusNode = FocusNode();
+  final FocusNode _contentFocusNode = FocusNode();
 
   Timer? _debounceTimer;
   bool _isSaving = false;
@@ -54,10 +58,17 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         : (_note?.subtitle ?? '');
 
     _titleController = TextEditingController(text: _note?.title ?? '');
-    _contentController = TextEditingController(text: initialContent);
+    _contentController = SmartListController(text: initialContent);
 
     _titleController.addListener(_onFieldChanged);
     _contentController.addListener(_onFieldChanged);
+
+    _titleFocusNode.addListener(_onFocusChanged);
+    _contentFocusNode.addListener(_onFocusChanged);
+  }
+
+  void _onFocusChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -66,11 +77,15 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _debounceTimer?.cancel();
     _titleController.removeListener(_onFieldChanged);
     _contentController.removeListener(_onFieldChanged);
+    _titleFocusNode.removeListener(_onFocusChanged);
+    _contentFocusNode.removeListener(_onFocusChanged);
 
     _saveCurrentChangesSync();
 
     _titleController.dispose();
     _contentController.dispose();
+    _titleFocusNode.dispose();
+    _contentFocusNode.dispose();
     super.dispose();
   }
 
@@ -370,28 +385,28 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(child: SizedBox.shrink()),
+      return Scaffold(
+        backgroundColor: context.appBg,
+        body: const Center(child: SizedBox.shrink()),
       );
     }
 
     if (_note == null) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.appBg,
         appBar: AppBar(
-          backgroundColor: AppColors.background,
+          backgroundColor: context.appBg,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18.0),
-            color: AppColors.textPrimary,
+            color: context.appTextPrimary,
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
         body: Center(
           child: Text(
             'Note not found.',
-            style: AppTypography.body(fontSize: 16.0, color: AppColors.textSecondary),
+            style: AppTypography.body(fontSize: 16.0, color: context.appTextSecondary),
           ),
         ),
       );
@@ -405,13 +420,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.appBg,
         appBar: AppBar(
-          backgroundColor: AppColors.background,
+          backgroundColor: context.appBg,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18.0),
-            color: AppColors.textPrimary,
+            color: context.appTextPrimary,
             onPressed: _handleBack,
           ),
           centerTitle: false,
@@ -424,7 +439,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     'Saving...',
                     style: AppTypography.uiLabel(
                       fontSize: 12.0,
-                      color: AppColors.textTertiary,
+                      color: context.appTextTertiary,
                     ),
                   ),
                 ),
@@ -432,7 +447,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             TextButton(
               onPressed: _openAiActions,
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
+                foregroundColor: context.appTextPrimary,
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 minimumSize: const Size(44.0, 36.0),
               ),
@@ -441,38 +456,40 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 style: AppTypography.uiHeadline(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.appTextPrimary,
                 ),
               ),
             ),
             IconButton(
               onPressed: _confirmDelete,
               icon: const Icon(Icons.delete_outline_rounded, size: 20.0),
-              color: AppColors.textSecondary,
+              color: context.appTextSecondary,
               tooltip: 'Delete note',
             ),
             const SizedBox(width: 4.0),
           ],
         ),
+        bottomNavigationBar: _buildFormattingToolbar(),
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Title Section (Breadcrumbs + Title)
+                // 1. Title Section (Breadcrumbs + Title + Date Stamp)
                 _buildBreadcrumbs(),
 
                 TextField(
                   controller: _titleController,
+                  focusNode: _titleFocusNode,
                   style: AppTypography.display(
                     fontSize: 32.0,
-                    color: AppColors.textPrimary,
+                    color: context.appTextPrimary,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Untitled',
                     hintStyle: TextStyle(
-                      color: AppColors.textTertiary,
+                      color: context.appTextTertiary,
                     ),
                     border: InputBorder.none,
                     isCollapsed: true,
@@ -481,19 +498,33 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   maxLines: null,
                   textCapitalization: TextCapitalization.sentences,
                 ),
-                const SizedBox(height: 20.0),
+                const SizedBox(height: 6.0),
+
+                if (_note != null) ...[
+                  Text(
+                    _formatDateStamp(_note!.updatedAt),
+                    style: AppTypography.uiLabel(
+                      fontSize: 12.0,
+                      color: context.appTextTertiary,
+                    ),
+                  ),
+                  const SizedBox(height: 18.0),
+                ] else ...[
+                  const SizedBox(height: 20.0),
+                ],
 
                 // 2. Body Section (The Notes)
                 TextField(
                   controller: _contentController,
+                  focusNode: _contentFocusNode,
                   style: AppTypography.body(
                     fontSize: 17.0,
-                    color: AppColors.textPrimary,
+                    color: context.appTextPrimary,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Start writing...',
                     hintStyle: TextStyle(
-                      color: AppColors.textTertiary,
+                      color: context.appTextTertiary,
                     ),
                     border: InputBorder.none,
                     isCollapsed: true,
@@ -675,5 +706,355 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         ],
       ),
     );
+  }
+
+  String _formatDateStamp(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) {
+      return 'Updated just now';
+    } else if (diff.inMinutes < 60) {
+      return 'Updated ${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24 && date.day == now.day) {
+      return 'Updated ${diff.inHours}h ago';
+    } else if (diff.inHours < 48 && date.day == now.subtract(const Duration(days: 1)).day) {
+      return 'Updated yesterday';
+    } else {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return 'Updated ${date.day} ${months[date.month - 1]}';
+    }
+  }
+
+  void _applyBold() {
+    final val = _contentController.value;
+    final selection = val.selection;
+    final text = val.text;
+    if (!selection.isValid) return;
+
+    if (selection.isCollapsed) {
+      final cursor = selection.start;
+      final newText = text.replaceRange(cursor, cursor, '****');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: cursor + 2),
+      );
+    } else {
+      final selectedText = selection.textInside(text);
+      final newText = text.replaceRange(selection.start, selection.end, '**$selectedText**');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset: selection.start,
+          extentOffset: selection.end + 4,
+        ),
+      );
+    }
+  }
+
+  void _applyItalic() {
+    final val = _contentController.value;
+    final selection = val.selection;
+    final text = val.text;
+    if (!selection.isValid) return;
+
+    if (selection.isCollapsed) {
+      final cursor = selection.start;
+      final newText = text.replaceRange(cursor, cursor, '__');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: cursor + 1),
+      );
+    } else {
+      final selectedText = selection.textInside(text);
+      final newText = text.replaceRange(selection.start, selection.end, '_${selectedText}_');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset: selection.start,
+          extentOffset: selection.end + 2,
+        ),
+      );
+    }
+  }
+
+  void _applyHighlight() {
+    final val = _contentController.value;
+    final selection = val.selection;
+    final text = val.text;
+    if (!selection.isValid) return;
+
+    if (selection.isCollapsed) {
+      final cursor = selection.start;
+      final newText = text.replaceRange(cursor, cursor, '====');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: cursor + 2),
+      );
+    } else {
+      final selectedText = selection.textInside(text);
+      final newText = text.replaceRange(selection.start, selection.end, '==$selectedText==');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset: selection.start,
+          extentOffset: selection.end + 4,
+        ),
+      );
+    }
+  }
+
+  void _applyBulletList() {
+    final val = _contentController.value;
+    final selection = val.selection;
+    final text = val.text;
+    if (!selection.isValid) return;
+
+    final cursor = selection.start;
+    final lineStart = text.lastIndexOf('\n', cursor > 0 ? cursor - 1 : 0);
+    final actualLineStart = lineStart == -1 ? 0 : lineStart + 1;
+    final currentLine = text.substring(actualLineStart, cursor);
+
+    if (currentLine.startsWith('• ')) {
+      final newText = text.replaceRange(actualLineStart, actualLineStart + 2, '');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: (selection.start - 2).clamp(0, newText.length)),
+      );
+    } else {
+      final newText = text.replaceRange(actualLineStart, actualLineStart, '• ');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + 2),
+      );
+    }
+  }
+
+  void _applyNumberedList() {
+    final val = _contentController.value;
+    final selection = val.selection;
+    final text = val.text;
+    if (!selection.isValid) return;
+
+    final cursor = selection.start;
+    final lineStart = text.lastIndexOf('\n', cursor > 0 ? cursor - 1 : 0);
+    final actualLineStart = lineStart == -1 ? 0 : lineStart + 1;
+    final currentLine = text.substring(actualLineStart, cursor);
+
+    final numMatch = RegExp(r'^(\d+)\.\s*').firstMatch(currentLine);
+    if (numMatch != null) {
+      final len = numMatch.group(0)!.length;
+      final newText = text.replaceRange(actualLineStart, actualLineStart + len, '');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: (selection.start - len).clamp(0, newText.length)),
+      );
+    } else {
+      int nextNum = 1;
+      if (actualLineStart > 0) {
+        final prevLineStart = text.lastIndexOf('\n', actualLineStart - 2);
+        final actualPrevStart = prevLineStart == -1 ? 0 : prevLineStart + 1;
+        final prevLine = text.substring(actualPrevStart, actualLineStart - 1);
+        final prevNumMatch = RegExp(r'^(\d+)\.\s*').firstMatch(prevLine);
+        if (prevNumMatch != null) {
+          nextNum = int.parse(prevNumMatch.group(1)!) + 1;
+        }
+      }
+      final prefix = '$nextNum. ';
+      final newText = text.replaceRange(actualLineStart, actualLineStart, prefix);
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + prefix.length),
+      );
+    }
+  }
+
+  Widget _buildFormattingToolbar() {
+    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final isContentFocused = _contentFocusNode.hasFocus;
+    final isTitleFocused = _titleFocusNode.hasFocus;
+
+    if (!isKeyboardVisible && !isContentFocused && !isTitleFocused) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      height: 44.0,
+      decoration: BoxDecoration(
+        color: context.appSurface,
+        border: Border(
+          top: BorderSide(color: context.appBorderSubtle, width: 0.8),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        children: [
+          _buildToolbarButton(
+            label: 'B',
+            isBold: true,
+            onTap: _applyBold,
+            tooltip: 'Bold',
+          ),
+          const SizedBox(width: 4.0),
+          _buildToolbarButton(
+            label: 'I',
+            isItalic: true,
+            onTap: _applyItalic,
+            tooltip: 'Italic',
+          ),
+          const SizedBox(width: 4.0),
+          _buildToolbarButton(
+            label: 'H',
+            isHighlight: true,
+            onTap: _applyHighlight,
+            tooltip: 'Highlight',
+          ),
+          const SizedBox(width: 4.0),
+          VerticalDivider(
+            color: context.appBorderSubtle,
+            indent: 10,
+            endIndent: 10,
+            width: 16,
+          ),
+          _buildToolbarButton(
+            label: '•',
+            onTap: _applyBulletList,
+            tooltip: 'Bullet List',
+          ),
+          const SizedBox(width: 4.0),
+          _buildToolbarButton(
+            label: '1.',
+            onTap: _applyNumberedList,
+            tooltip: 'Numbered List',
+          ),
+          const Spacer(),
+          IconButton(
+            icon: Icon(Icons.keyboard_hide_rounded, size: 20.0, color: context.appTextTertiary),
+            onPressed: () {
+              _contentFocusNode.unfocus();
+              _titleFocusNode.unfocus();
+            },
+            tooltip: 'Hide keyboard',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbarButton({
+    required String label,
+    required VoidCallback onTap,
+    bool isBold = false,
+    bool isItalic = false,
+    bool isHighlight = false,
+    required String tooltip,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6.0),
+        child: Container(
+          width: 36.0,
+          height: 32.0,
+          alignment: Alignment.center,
+          decoration: isHighlight
+              ? BoxDecoration(
+                  color: context.isDarkMode ? const Color(0xFF665C00) : const Color(0xFFFFF1A8),
+                  borderRadius: BorderRadius.circular(4.0),
+                )
+              : null,
+          child: Text(
+            label,
+            style: AppTypography.uiHeadline(
+              fontSize: 15.0,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+              color: context.appTextPrimary,
+            ).copyWith(
+              fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SmartListController extends RichTextEditingController {
+  SmartListController({super.text});
+
+  @override
+  set value(TextEditingValue newValue) {
+    final oldText = text;
+    final oldSel = selection;
+
+    // Intercept single newline insertion
+    if (newValue.text.length == oldText.length + 1 &&
+        oldSel.isCollapsed &&
+        oldSel.start >= 0 &&
+        oldSel.start <= oldText.length &&
+        newValue.text.length > oldSel.start &&
+        newValue.text[oldSel.start] == '\n') {
+      
+      final cursor = oldSel.start;
+      final lineStart = oldText.lastIndexOf('\n', cursor > 0 ? cursor - 1 : 0);
+      final actualLineStart = lineStart == -1 ? 0 : lineStart + 1;
+      final lineBeforeEnter = oldText.substring(actualLineStart, cursor);
+
+      // 1. Check Bullet list (•, -, *)
+      final bulletMatch = RegExp(r'^(\s*)([•\-\*])\s*(.*)$').firstMatch(lineBeforeEnter);
+      if (bulletMatch != null) {
+        final indent = bulletMatch.group(1)!;
+        final symbol = bulletMatch.group(2)!;
+        final content = bulletMatch.group(3)!;
+
+        if (content.trim().isEmpty) {
+          // Double enter on empty bullet -> Exit list mode
+          final newText = oldText.substring(0, actualLineStart) + oldText.substring(cursor);
+          super.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: actualLineStart),
+          );
+          return;
+        } else {
+          // Continue bullet list
+          final prefix = '\n$indent$symbol ';
+          final newText = oldText.substring(0, cursor) + prefix + oldText.substring(cursor);
+          super.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: cursor + prefix.length),
+          );
+          return;
+        }
+      }
+
+      // 2. Check Numbered list (1., 2., etc)
+      final numMatch = RegExp(r'^(\s*)(\d+)\.\s*(.*)$').firstMatch(lineBeforeEnter);
+      if (numMatch != null) {
+        final indent = numMatch.group(1)!;
+        final numVal = int.parse(numMatch.group(2)!);
+        final content = numMatch.group(3)!;
+
+        if (content.trim().isEmpty) {
+          // Double enter on empty number -> Exit list mode
+          final newText = oldText.substring(0, actualLineStart) + oldText.substring(cursor);
+          super.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: actualLineStart),
+          );
+          return;
+        } else {
+          // Continue numbered list
+          final prefix = '\n$indent${numVal + 1}. ';
+          final newText = oldText.substring(0, cursor) + prefix + oldText.substring(cursor);
+          super.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: cursor + prefix.length),
+          );
+          return;
+        }
+      }
+    }
+
+    super.value = newValue;
   }
 }

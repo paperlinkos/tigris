@@ -1,20 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'app/di/repository_scope.dart';
 import 'app/theme/app_theme.dart';
 import 'app/navigation/app_shell.dart';
+import 'controllers/theme_controller.dart';
 import 'persistence/preferences_storage.dart';
 import 'persistence/storage_interface.dart';
 import 'repositories/flashcard_repository.dart';
+import 'repositories/firestore_note_repository.dart';
 import 'repositories/local_flashcard_repository.dart';
 import 'repositories/local_note_repository.dart';
 import 'repositories/local_quiz_repository.dart';
 import 'repositories/local_review_repository.dart';
 import 'repositories/note_repository.dart';
+import 'repositories/offline_first_note_repository.dart';
 import 'repositories/quiz_repository.dart';
 import 'repositories/review_repository.dart';
+import 'services/cloud_sync_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase initialization warning: $e');
+  }
   runApp(const PersonalLearningApp());
 }
 
@@ -24,6 +37,7 @@ class PersonalLearningApp extends StatefulWidget {
   final ReviewRepository? reviewRepository;
   final FlashcardRepository? flashcardRepository;
   final QuizRepository? quizRepository;
+  final ThemeController? themeController;
 
   const PersonalLearningApp({
     super.key,
@@ -32,6 +46,7 @@ class PersonalLearningApp extends StatefulWidget {
     this.reviewRepository,
     this.flashcardRepository,
     this.quizRepository,
+    this.themeController,
   });
 
   @override
@@ -43,12 +58,34 @@ class _PersonalLearningAppState extends State<PersonalLearningApp> {
   late final ReviewRepository _reviewRepository;
   late final FlashcardRepository _flashcardRepository;
   late final QuizRepository _quizRepository;
+  late final CloudSyncService _syncService;
+  late final ThemeController _themeController;
 
   @override
   void initState() {
     super.initState();
     final storage = widget.storage ?? PreferencesStorage();
-    _noteRepository = widget.noteRepository ?? LocalNoteRepository(storage: storage);
+    _syncService = CloudSyncService();
+    _themeController = widget.themeController ?? ThemeController(storage: storage);
+
+    if (widget.noteRepository != null) {
+      _noteRepository = widget.noteRepository!;
+    } else {
+      final localRepo = LocalNoteRepository(storage: storage);
+      FirestoreNoteRepository? firestoreRepo;
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          firestoreRepo = FirestoreNoteRepository();
+        }
+      } catch (_) {
+        firestoreRepo = null;
+      }
+      _noteRepository = OfflineFirstNoteRepository(
+        localRepo: localRepo,
+        firestoreRepo: firestoreRepo,
+        syncService: _syncService,
+      );
+    }
     _reviewRepository = widget.reviewRepository ?? LocalReviewRepository(storage: storage);
     _flashcardRepository = widget.flashcardRepository ?? LocalFlashcardRepository(storage: storage);
     _quizRepository = widget.quizRepository ?? LocalQuizRepository(storage: storage);
@@ -61,14 +98,24 @@ class _PersonalLearningAppState extends State<PersonalLearningApp> {
       reviewRepository: _reviewRepository,
       flashcardRepository: _flashcardRepository,
       quizRepository: _quizRepository,
-      child: MaterialApp(
-        title: 'Active Learning',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: AppShell(
-          storage: widget.storage,
-          noteRepository: _noteRepository,
-          reviewRepository: _reviewRepository,
+      child: ThemeControllerScope(
+        themeController: _themeController,
+        child: ListenableBuilder(
+          listenable: _themeController,
+          builder: (context, child) {
+            return MaterialApp(
+              title: 'Active Learning',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: _themeController.themeMode,
+              home: AppShell(
+                storage: widget.storage,
+                noteRepository: _noteRepository,
+                reviewRepository: _reviewRepository,
+              ),
+            );
+          },
         ),
       ),
     );

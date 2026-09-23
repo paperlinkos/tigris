@@ -1,70 +1,116 @@
 import 'package:flutter/material.dart';
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_typography.dart';
+import '../../app/theme/context_theme_extensions.dart';
+import '../brand/tigris_logo.dart';
+
+enum HomeViewMode { notes, tasks }
 
 class HomeHeader extends StatelessWidget {
-  final VoidCallback onCreateNote;
+  final HomeViewMode viewMode;
+  final ValueChanged<HomeViewMode> onViewModeChanged;
 
   const HomeHeader({
     super.key,
-    required this.onCreateNote,
+    required this.viewMode,
+    required this.onViewModeChanged,
   });
-
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Good morning.';
-    } else if (hour < 17) {
-      return 'Good afternoon.';
-    } else {
-      return 'Good evening.';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Greeting with full editorial width
-        Text(
-          _getGreeting(),
-          style: AppTypography.display(
-            fontSize: 32.0,
-            color: AppColors.textPrimary,
+        // Left: Sidebar Toggle Button
+        InkWell(
+          key: const Key('sidebar_toggle_button'),
+          onTap: () {
+            Scaffold.of(context).openDrawer();
+          },
+          borderRadius: BorderRadius.circular(8.0),
+          child: Container(
+            padding: const EdgeInsets.all(8.0),
+            decoration: BoxDecoration(
+              color: context.appSurface,
+              borderRadius: BorderRadius.circular(8.0),
+              border: Border.all(color: context.appBorderSubtle, width: 1.0),
+            ),
+            child: Icon(
+              Icons.view_sidebar_outlined,
+              size: 20.0,
+              color: context.appTextPrimary,
+            ),
           ),
         ),
-        const SizedBox(height: 20.0),
-        // Primary Action: "+ New note"
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48.0),
-          child: OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textPrimary,
-              side: const BorderSide(color: AppColors.border, width: 1.2),
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-            ),
-            onPressed: onCreateNote,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.add_rounded, size: 18.0, color: AppColors.textPrimary),
-                const SizedBox(width: 8.0),
-                Text(
-                  'New note',
-                  style: AppTypography.uiHeadline(
-                    fontSize: 14.0,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+
+        // Center: Notes / Tasks Segmented Toggle
+        Container(
+          height: 36.0,
+          padding: const EdgeInsets.all(3.0),
+          decoration: BoxDecoration(
+            color: context.appSurfaceSubtle,
+            borderRadius: BorderRadius.circular(20.0),
+            border: Border.all(color: context.appBorderSubtle, width: 0.8),
           ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSegment(
+                context,
+                label: 'Notes',
+                isSelected: viewMode == HomeViewMode.notes,
+                onTap: () => onViewModeChanged(HomeViewMode.notes),
+              ),
+              _buildSegment(
+                context,
+                label: 'Tasks',
+                isSelected: viewMode == HomeViewMode.tasks,
+                onTap: () => onViewModeChanged(HomeViewMode.tasks),
+              ),
+            ],
+          ),
+        ),
+
+        // Right: Tigris Brand Mark Emblem
+        const Padding(
+          padding: EdgeInsets.only(right: 4.0),
+          child: TigrisLogo(size: 22.0),
         ),
       ],
+    );
+  }
+
+  Widget _buildSegment(
+    BuildContext context, {
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        decoration: BoxDecoration(
+          color: isSelected ? context.appSurface : Colors.transparent,
+          borderRadius: BorderRadius.circular(16.0),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(context.isDarkMode ? 30 : 15),
+                    blurRadius: 3.0,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : [],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? context.appTextPrimary : context.appTextSecondary,
+          ),
+        ),
+      ),
     );
   }
 }

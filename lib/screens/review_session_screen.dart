@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app/di/repository_scope.dart';
-import '../app/theme/app_colors.dart';
 import '../app/theme/app_typography.dart';
+import '../app/theme/context_theme_extensions.dart';
 import '../models/flashcard.dart';
 import '../models/note.dart';
 import '../models/review_item.dart';
@@ -94,22 +94,22 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.background,
+      return Scaffold(
+        backgroundColor: context.appBg,
         body: Center(
-          child: CircularProgressIndicator(strokeWidth: 2.0, color: AppColors.textPrimary),
+          child: CircularProgressIndicator(strokeWidth: 2.0, color: context.appTextPrimary),
         ),
       );
     }
 
     if (_dueQueue.isEmpty) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.appBg,
         appBar: AppBar(
-          backgroundColor: AppColors.background,
+          backgroundColor: context.appBg,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary),
+            icon: Icon(Icons.close_rounded, color: context.appTextPrimary),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -119,32 +119,38 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Center(
-                  child: Text('✦', style: TextStyle(fontSize: 32.0, color: AppColors.textPrimary)),
+                Center(
+                  child: Text('✦', style: TextStyle(fontSize: 32.0, color: context.appTextPrimary)),
                 ),
                 const SizedBox(height: 16.0),
                 Text(
                   'Nothing due for review',
-                  style: AppTypography.display(fontSize: 24.0),
+                  style: AppTypography.display(fontSize: 24.0, color: context.appTextPrimary),
                 ),
                 const SizedBox(height: 8.0),
                 Text(
                   'Your spaced repetition queue is clear for today.',
                   textAlign: TextAlign.center,
-                  style: AppTypography.subtitle(color: AppColors.textSecondary),
+                  style: AppTypography.subtitle(color: context.appTextSecondary),
                 ),
                 const SizedBox(height: 24.0),
                 ElevatedButton(
                   key: const Key('return_home_button'),
                   onPressed: () => Navigator.of(context).pop(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.textPrimary,
-                    foregroundColor: AppColors.background,
+                    backgroundColor: context.appTextPrimary,
+                    foregroundColor: context.appBg,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
                   ),
-                  child: const Text('Return Home'),
+                  child: Text(
+                    'Return Home',
+                    style: AppTypography.uiHeadline(
+                      fontSize: 14.5,
+                      color: context.appBg,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -154,7 +160,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
     }
 
     if (_isCompleted) {
-      return _buildCompletionView();
+      return _buildCompletionView(context);
     }
 
     final currentItem = _dueQueue[_currentIndex];
@@ -177,12 +183,12 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
             : note?.subtitle ?? 'Active retrieval practice for this note.');
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appBg,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.appBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary),
+          icon: Icon(Icons.close_rounded, color: context.appTextPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Column(
@@ -192,7 +198,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
               style: AppTypography.uiLabel(
                 fontSize: 11.0,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                color: context.appTextSecondary,
               ).copyWith(letterSpacing: 1.2),
             ),
             const SizedBox(height: 2.0),
@@ -202,7 +208,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
               overflow: TextOverflow.ellipsis,
               style: AppTypography.subtitle(
                 fontSize: 13.0,
-                color: AppColors.textTertiary,
+                color: context.appTextTertiary,
               ),
             ),
           ],
@@ -211,8 +217,8 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
           preferredSize: const Size.fromHeight(2.0),
           child: LinearProgressIndicator(
             value: progress,
-            backgroundColor: AppColors.borderSubtle,
-            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.textPrimary),
+            backgroundColor: context.appBorderSubtle,
+            valueColor: AlwaysStoppedAnimation<Color>(context.appTextPrimary),
             minHeight: 2.0,
           ),
         ),
@@ -228,9 +234,9 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(24.0),
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: context.appSurface,
                       borderRadius: BorderRadius.circular(12.0),
-                      border: Border.all(color: AppColors.borderSubtle),
+                      border: Border.all(color: context.appBorderSubtle),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,7 +246,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
                           style: AppTypography.uiLabel(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
+                            color: context.appTextSecondary,
                           ).copyWith(letterSpacing: 1.1),
                         ),
                         const SizedBox(height: 14.0),
@@ -248,19 +254,19 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
                           promptText,
                           style: AppTypography.title(
                             fontSize: 19.0,
-                            color: AppColors.textPrimary,
+                            color: context.appTextPrimary,
                           ),
                         ),
                         if (_isAnswerRevealed) ...[
                           const SizedBox(height: 24.0),
-                          const Divider(color: AppColors.borderSubtle, height: 1.0),
+                          Divider(color: context.appBorderSubtle, height: 1.0),
                           const SizedBox(height: 20.0),
                           Text(
                             'MEMORY SOURCE',
                             style: AppTypography.uiLabel(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
+                              color: context.appTextSecondary,
                             ).copyWith(letterSpacing: 1.1),
                           ),
                           const SizedBox(height: 12.0),
@@ -268,7 +274,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
                             answerText,
                             style: AppTypography.body(
                               fontSize: 15.5,
-                              color: AppColors.textPrimary,
+                              color: context.appTextPrimary,
                             ),
                           ),
                         ],
@@ -283,8 +289,8 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
                   key: const Key('review_session_show_answer'),
                   onPressed: () => setState(() => _isAnswerRevealed = true),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.textPrimary,
-                    foregroundColor: AppColors.background,
+                    backgroundColor: context.appTextPrimary,
+                    foregroundColor: context.appBg,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     shape: RoundedRectangleBorder(
@@ -296,7 +302,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
                     style: AppTypography.uiHeadline(
                       fontSize: 15.0,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.background,
+                      color: context.appBg,
                     ),
                   ),
                 )
@@ -310,26 +316,26 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
                       style: AppTypography.uiLabel(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                        color: context.appTextSecondary,
                       ).copyWith(letterSpacing: 1.1),
                     ),
                     const SizedBox(height: 12.0),
                     Row(
                       children: [
                         Expanded(
-                          child: _buildRateBtn('rate_again_button', 'Again', '< 1d', 1),
+                          child: _buildRateBtn(context, 'rate_again_button', 'Again', '< 1d', 1),
                         ),
                         const SizedBox(width: 8.0),
                         Expanded(
-                          child: _buildRateBtn('rate_hard_button', 'Hard', '1d', 2),
+                          child: _buildRateBtn(context, 'rate_hard_button', 'Hard', '1d', 2),
                         ),
                         const SizedBox(width: 8.0),
                         Expanded(
-                          child: _buildRateBtn('rate_good_button', 'Good', '3d', 4),
+                          child: _buildRateBtn(context, 'rate_good_button', 'Good', '3d', 4),
                         ),
                         const SizedBox(width: 8.0),
                         Expanded(
-                          child: _buildRateBtn('rate_easy_button', 'Easy', '7d', 5),
+                          child: _buildRateBtn(context, 'rate_easy_button', 'Easy', '7d', 5),
                         ),
                       ],
                     ),
@@ -342,13 +348,13 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
     );
   }
 
-  Widget _buildRateBtn(String keyName, String label, String sublabel, int rating) {
+  Widget _buildRateBtn(BuildContext context, String keyName, String label, String sublabel, int rating) {
     return OutlinedButton(
       key: Key(keyName),
       onPressed: () => _recordRating(rating),
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.textPrimary,
-        side: const BorderSide(color: AppColors.borderSubtle),
+        foregroundColor: context.appTextPrimary,
+        side: BorderSide(color: context.appBorderSubtle),
         padding: const EdgeInsets.symmetric(vertical: 12.0),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       ),
@@ -360,32 +366,32 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
             style: AppTypography.uiHeadline(
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.appTextPrimary,
             ),
           ),
           const SizedBox(height: 2.0),
           Text(
             sublabel,
-            style: AppTypography.subtitle(fontSize: 11.0, color: AppColors.textTertiary),
+            style: AppTypography.subtitle(fontSize: 11.0, color: context.appTextTertiary),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCompletionView() {
+  Widget _buildCompletionView(BuildContext context) {
     final again = _ratings.values.where((r) => r == 1).length;
     final hard = _ratings.values.where((r) => r == 2).length;
     final good = _ratings.values.where((r) => r == 4).length;
     final easy = _ratings.values.where((r) => r == 5).length;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appBg,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.appBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary),
+          icon: Icon(Icons.close_rounded, color: context.appTextPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -397,36 +403,36 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              const Center(
-                child: Text('✦', style: TextStyle(fontSize: 36.0, color: AppColors.textPrimary)),
+              Center(
+                child: Text('✦', style: TextStyle(fontSize: 36.0, color: context.appTextPrimary)),
               ),
               const SizedBox(height: 16.0),
               Text(
                 'Review complete',
                 textAlign: TextAlign.center,
-                style: AppTypography.display(fontSize: 28.0),
+                style: AppTypography.display(fontSize: 28.0, color: context.appTextPrimary),
               ),
               const SizedBox(height: 8.0),
               Text(
                 'You reviewed ${_dueQueue.length} ${_dueQueue.length == 1 ? "item" : "items"} from your memory queue.',
                 textAlign: TextAlign.center,
-                style: AppTypography.subtitle(fontSize: 14.5, color: AppColors.textSecondary),
+                style: AppTypography.subtitle(fontSize: 14.5, color: context.appTextSecondary),
               ),
               const SizedBox(height: 32.0),
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 16.0),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: context.appSurface,
                   borderRadius: BorderRadius.circular(10.0),
-                  border: Border.all(color: AppColors.borderSubtle),
+                  border: Border.all(color: context.appBorderSubtle),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatCol('Again', '$again'),
-                    _buildStatCol('Hard', '$hard'),
-                    _buildStatCol('Good', '$good'),
-                    _buildStatCol('Easy', '$easy'),
+                    _buildStatCol(context, 'Again', '$again'),
+                    _buildStatCol(context, 'Hard', '$hard'),
+                    _buildStatCol(context, 'Good', '$good'),
+                    _buildStatCol(context, 'Easy', '$easy'),
                   ],
                 ),
               ),
@@ -435,8 +441,8 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
                 key: const Key('review_session_done_button'),
                 onPressed: () => Navigator.of(context).pop(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.textPrimary,
-                  foregroundColor: AppColors.background,
+                  backgroundColor: context.appTextPrimary,
+                  foregroundColor: context.appBg,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 16.0),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
@@ -446,7 +452,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
                   style: AppTypography.uiHeadline(
                     fontSize: 15.0,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.background,
+                    color: context.appBg,
                   ),
                 ),
               ),
@@ -458,7 +464,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
     );
   }
 
-  Widget _buildStatCol(String label, String value) {
+  Widget _buildStatCol(BuildContext context, String label, String value) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -467,13 +473,13 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
           style: AppTypography.title(
             fontSize: 20.0,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: context.appTextPrimary,
           ),
         ),
         const SizedBox(height: 2.0),
         Text(
           label,
-          style: AppTypography.subtitle(fontSize: 12.0, color: AppColors.textTertiary),
+          style: AppTypography.subtitle(fontSize: 12.0, color: context.appTextTertiary),
         ),
       ],
     );
