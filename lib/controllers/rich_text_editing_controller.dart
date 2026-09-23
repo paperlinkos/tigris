@@ -78,4 +78,84 @@ class RichTextEditingController extends TextEditingController {
 
     return TextSpan(style: baseStyle, children: spans);
   }
+
+  void toggleFormat(String delimiter) {
+    final val = value;
+    final sel = val.selection;
+    final currentText = val.text;
+    if (!sel.isValid) return;
+
+    final dLen = delimiter.length;
+
+    if (sel.isCollapsed) {
+      final pos = sel.start;
+      // Check if cursor is inside delimiter (e.g. **|**)
+      if (pos >= dLen && pos + dLen <= currentText.length) {
+        final before = currentText.substring(pos - dLen, pos);
+        final after = currentText.substring(pos, pos + dLen);
+        if (before == delimiter && after == delimiter) {
+          // Remove surrounding delimiters
+          final newText = currentText.replaceRange(pos - dLen, pos + dLen, '');
+          value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: pos - dLen),
+          );
+          return;
+        }
+      }
+      // Insert empty delimiters and place cursor inside (**|**)
+      final newText = currentText.replaceRange(pos, pos, delimiter + delimiter);
+      value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: pos + dLen),
+      );
+    } else {
+      final selectedText = currentText.substring(sel.start, sel.end);
+
+      // 1. Check if selection itself includes delimiters: **text**
+      if (selectedText.length >= dLen * 2 &&
+          selectedText.startsWith(delimiter) &&
+          selectedText.endsWith(delimiter)) {
+        final innerText = selectedText.substring(dLen, selectedText.length - dLen);
+        final newText = currentText.replaceRange(sel.start, sel.end, innerText);
+        value = TextEditingValue(
+          text: newText,
+          selection: TextSelection(
+            baseOffset: sel.start,
+            extentOffset: sel.start + innerText.length,
+          ),
+        );
+        return;
+      }
+
+      // 2. Check if text outside selection has delimiters: **|text|**
+      if (sel.start >= dLen && sel.end + dLen <= currentText.length) {
+        final before = currentText.substring(sel.start - dLen, sel.start);
+        final after = currentText.substring(sel.end, sel.end + dLen);
+        if (before == delimiter && after == delimiter) {
+          final newText = currentText.replaceRange(sel.end, sel.end + dLen, '');
+          final newText2 = newText.replaceRange(sel.start - dLen, sel.start, '');
+          value = TextEditingValue(
+            text: newText2,
+            selection: TextSelection(
+              baseOffset: sel.start - dLen,
+              extentOffset: sel.end - dLen,
+            ),
+          );
+          return;
+        }
+      }
+
+      // 3. Otherwise wrap selection in delimiters
+      final wrappedText = '$delimiter$selectedText$delimiter';
+      final newText = currentText.replaceRange(sel.start, sel.end, wrappedText);
+      value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset: sel.start,
+          extentOffset: sel.start + wrappedText.length,
+        ),
+      );
+    }
+  }
 }

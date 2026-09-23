@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../app/di/repository_scope.dart';
 import '../../app/theme/app_typography.dart';
 import '../../app/theme/context_theme_extensions.dart';
 import '../../controllers/theme_controller.dart';
 import '../../models/note.dart';
+import '../../repositories/offline_first_note_repository.dart';
 import '../brand/tigris_logo.dart';
 
 class AppSidebarDrawer extends StatelessWidget {
@@ -191,6 +193,34 @@ class AppSidebarDrawer extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).pop();
                       onOpenReview();
+                    },
+                  ),
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0.0),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+                    leading: Icon(Icons.sync_rounded, size: 20.0, color: textPrimary),
+                    title: Text(
+                      'Sync Notes',
+                      style: AppTypography.uiHeadline(
+                        fontSize: 14.0,
+                        fontWeight: FontWeight.w500,
+                        color: textPrimary,
+                      ),
+                    ),
+                    onTap: () async {
+                      Navigator.of(context).pop();
+                      final repo = RepositoryScope.maybeOf(context)?.noteRepository;
+                      if (repo is OfflineFirstNoteRepository) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Syncing notes across devices...')),
+                        );
+                        await repo.syncWithCloud();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Notes synced successfully!')),
+                          );
+                        }
+                      }
                     },
                   ),
                 ],

@@ -726,81 +726,15 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   }
 
   void _applyBold() {
-    final val = _contentController.value;
-    final selection = val.selection;
-    final text = val.text;
-    if (!selection.isValid) return;
-
-    if (selection.isCollapsed) {
-      final cursor = selection.start;
-      final newText = text.replaceRange(cursor, cursor, '****');
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: cursor + 2),
-      );
-    } else {
-      final selectedText = selection.textInside(text);
-      final newText = text.replaceRange(selection.start, selection.end, '**$selectedText**');
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection(
-          baseOffset: selection.start,
-          extentOffset: selection.end + 4,
-        ),
-      );
-    }
+    _contentController.toggleFormat('**');
   }
 
   void _applyItalic() {
-    final val = _contentController.value;
-    final selection = val.selection;
-    final text = val.text;
-    if (!selection.isValid) return;
-
-    if (selection.isCollapsed) {
-      final cursor = selection.start;
-      final newText = text.replaceRange(cursor, cursor, '__');
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: cursor + 1),
-      );
-    } else {
-      final selectedText = selection.textInside(text);
-      final newText = text.replaceRange(selection.start, selection.end, '_${selectedText}_');
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection(
-          baseOffset: selection.start,
-          extentOffset: selection.end + 2,
-        ),
-      );
-    }
+    _contentController.toggleFormat('*');
   }
 
   void _applyHighlight() {
-    final val = _contentController.value;
-    final selection = val.selection;
-    final text = val.text;
-    if (!selection.isValid) return;
-
-    if (selection.isCollapsed) {
-      final cursor = selection.start;
-      final newText = text.replaceRange(cursor, cursor, '====');
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: cursor + 2),
-      );
-    } else {
-      final selectedText = selection.textInside(text);
-      final newText = text.replaceRange(selection.start, selection.end, '==$selectedText==');
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection(
-          baseOffset: selection.start,
-          extentOffset: selection.end + 4,
-        ),
-      );
-    }
+    _contentController.toggleFormat('==');
   }
 
   void _applyBulletList() {
@@ -869,23 +803,25 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   }
 
   Widget _buildFormattingToolbar() {
-    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final isContentFocused = _contentFocusNode.hasFocus;
     final isTitleFocused = _titleFocusNode.hasFocus;
 
-    if (!isKeyboardVisible && !isContentFocused && !isTitleFocused) {
+    if (bottomInset == 0 && !isContentFocused && !isTitleFocused) {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      height: 44.0,
-      decoration: BoxDecoration(
-        color: context.appSurface,
-        border: Border(
-          top: BorderSide(color: context.appBorderSubtle, width: 0.8),
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        height: 48.0,
+        decoration: BoxDecoration(
+          color: context.appSurface,
+          border: Border(
+            top: BorderSide(color: context.appBorderSubtle, width: 0.8),
+          ),
         ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
         children: [
           _buildToolbarButton(
@@ -937,8 +873,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildToolbarButton({
     required String label,

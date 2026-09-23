@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'app/di/repository_scope.dart';
 import 'app/theme/app_theme.dart';
@@ -60,6 +62,8 @@ class _PersonalLearningAppState extends State<PersonalLearningApp> {
   late final QuizRepository _quizRepository;
   late final CloudSyncService _syncService;
   late final ThemeController _themeController;
+  StreamSubscription<User?>? _authSub;
+  Timer? _periodicSyncTimer;
 
   @override
   void initState() {
@@ -89,6 +93,47 @@ class _PersonalLearningAppState extends State<PersonalLearningApp> {
     _reviewRepository = widget.reviewRepository ?? LocalReviewRepository(storage: storage);
     _flashcardRepository = widget.flashcardRepository ?? LocalFlashcardRepository(storage: storage);
     _quizRepository = widget.quizRepository ?? LocalQuizRepository(storage: storage);
+
+    _setupCloudSyncListeners();
+  }
+
+  void _setupCloudSyncListeners() {
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+          if (user != null && !user.isAnonymous) {
+            _triggerCloudSync();
+          }
+        });
+      }
+    } catch (_) {}
+
+    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null && !currentUser.isAnonymous) {
+          _triggerCloudSync();
+        }
+      } catch (_) {}
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _triggerCloudSync();
+    });
+  }
+
+  void _triggerCloudSync() {
+    final repo = _noteRepository;
+    if (repo is OfflineFirstNoteRepository) {
+      repo.syncWithCloud();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _periodicSyncTimer?.cancel();
+    super.dispose();
   }
 
   @override

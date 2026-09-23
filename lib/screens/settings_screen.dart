@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../app/di/repository_scope.dart';
 import '../app/theme/app_typography.dart';
 import '../app/theme/context_theme_extensions.dart';
 import '../controllers/theme_controller.dart';
+import '../repositories/offline_first_note_repository.dart';
 import '../services/auth_service.dart';
 import '../widgets/calm_scaffold.dart';
 import 'login_screen.dart';
@@ -228,9 +230,27 @@ class SettingsScreen extends StatelessWidget {
           Divider(color: context.appBorderSubtle),
           _buildSettingsItem(
             context,
-            title: 'Data & Storage',
-            subtitle: 'Local-first with Cloud Firestore background sync',
-            icon: Icons.cloud_done_outlined,
+            title: 'Sync Now (Cloud Sync)',
+            subtitle: 'Force immediate bidirectional sync with Cloud Firestore',
+            icon: Icons.sync_rounded,
+            onTap: () async {
+              final repo = RepositoryScope.maybeOf(context)?.noteRepository;
+              if (repo is OfflineFirstNoteRepository) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Syncing notes with cloud...')),
+                );
+                await repo.syncWithCloud();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Cloud sync complete! All notes up to date.')),
+                  );
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Notes saved locally.')),
+                );
+              }
+            },
           ),
           Divider(color: context.appBorderSubtle),
           _buildSettingsItem(
