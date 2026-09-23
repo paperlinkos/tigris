@@ -43,7 +43,10 @@ class AuthService extends ChangeNotifier {
 
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      final gSignIn = _googleSignIn ?? GoogleSignIn();
+      final gSignIn = _googleSignIn ??
+          GoogleSignIn(
+            serverClientId: '544154185532-pfa7necu0t1pje69bek0289p6rm6vt1r.apps.googleusercontent.com',
+          );
       final googleUser = await gSignIn.signIn();
       if (googleUser == null) return null;
 

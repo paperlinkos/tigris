@@ -55,12 +55,38 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Google Sign-In failed: ${e.toString().replaceFirst("Exception: ", "")}';
+          _errorMessage = _mapAuthErrorMessage(e);
         });
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String _mapAuthErrorMessage(dynamic e) {
+    final str = e.toString();
+    if (str.contains('CONFIGURATION_NOT_FOUND')) {
+      return 'Firebase Authentication is not activated yet in your Firebase Console. Go to console.firebase.google.com -> tigris-notes-app -> Authentication and click "Get started", then enable Email & Google.';
+    }
+    if (str.contains('Api10') || str.contains('DEVELOPER_ERROR')) {
+      return 'Google Sign-In: Android SHA-1 fingerprint needs to be added in Firebase Console (Project Settings -> Add Fingerprint).';
+    }
+    if (str.contains('network-request-failed')) {
+      return 'Network connection error. Check your internet connection.';
+    }
+    if (str.contains('email-already-in-use')) {
+      return 'This email is already in use. Please sign in instead.';
+    }
+    if (str.contains('wrong-password') || str.contains('user-not-found') || str.contains('invalid-credential')) {
+      return 'Invalid email or password.';
+    }
+    if (str.contains('weak-password')) {
+      return 'Password is too weak. Must be at least 6 characters.';
+    }
+    if (str.contains('invalid-email')) {
+      return 'Please enter a valid email address.';
+    }
+    return str.replaceFirst("Exception: ", "").trim();
   }
 
   Future<void> _handleEmailAuth() async {
@@ -90,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceFirst("Exception: ", "");
+          _errorMessage = _mapAuthErrorMessage(e);
         });
       }
     } finally {
