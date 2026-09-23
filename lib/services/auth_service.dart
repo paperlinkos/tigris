@@ -33,12 +33,55 @@ class AuthService extends ChangeNotifier {
 
   bool get isAuthenticated => currentUser != null && !currentUser!.isAnonymous;
 
+  bool get hasPasswordProvider {
+    final user = currentUser;
+    if (user == null) return false;
+    return user.providerData.any((p) => p.providerId == 'password');
+  }
+
+  bool get hasGoogleProvider {
+    final user = currentUser;
+    if (user == null) return false;
+    return user.providerData.any((p) => p.providerId == 'google.com');
+  }
+
   Stream<User?> get authStateChanges {
     try {
       final inst = _authInstance;
       if (inst != null) return inst.authStateChanges();
     } catch (_) {}
     return Stream.value(null);
+  }
+
+  Future<void> setOrUpdatePassword(String newPassword) async {
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('No user is currently signed in.');
+    }
+    final email = user.email;
+    if (email == null || email.trim().isEmpty) {
+      throw Exception('No email address associated with this account.');
+    }
+    if (newPassword.trim().length < 6) {
+      throw Exception('Password must be at least 6 characters.');
+    }
+
+    try {
+      if (hasPasswordProvider) {
+        await user.updatePassword(newPassword.trim());
+      } else {
+        final credential = EmailAuthProvider.credential(
+          email: email.trim(),
+          password: newPassword.trim(),
+        );
+        await user.linkWithCredential(credential);
+      }
+      await user.reload();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Set Password Error: $e');
+      rethrow;
+    }
   }
 
   Future<UserCredential?> signInWithGoogle() async {

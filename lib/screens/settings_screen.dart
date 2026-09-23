@@ -55,64 +55,118 @@ class SettingsScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12.0),
               border: Border.all(color: context.appBorderSubtle, width: 0.8),
             ),
-            child: Row(
+            child: Column(
               children: [
-                CircleAvatar(
-                  backgroundColor: context.appSurfaceSubtle,
-                  radius: 20.0,
-                  child: Icon(
-                    isGuest ? Icons.person_outline_rounded : Icons.account_circle_rounded,
-                    color: context.appTextPrimary,
-                  ),
-                ),
-                const SizedBox(width: 14.0),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isGuest ? 'Guest User (Offline Mode)' : (user.displayName ?? user.email ?? 'Signed In'),
-                        style: AppTypography.uiHeadline(
-                          fontSize: 15.0,
-                          fontWeight: FontWeight.w600,
-                          color: context.appTextPrimary,
-                        ),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: context.appSurfaceSubtle,
+                      radius: 20.0,
+                      child: Icon(
+                        isGuest ? Icons.person_outline_rounded : Icons.account_circle_rounded,
+                        color: context.appTextPrimary,
                       ),
-                      const SizedBox(height: 2.0),
-                      Text(
-                        isGuest ? 'Notes save locally. Sign in to backup to cloud.' : (user.email ?? 'Cloud sync active'),
+                    ),
+                    const SizedBox(width: 14.0),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isGuest ? 'Guest User (Offline Mode)' : (user.displayName ?? user.email ?? 'Signed In'),
+                            style: AppTypography.uiHeadline(
+                              fontSize: 15.0,
+                              fontWeight: FontWeight.w600,
+                              color: context.appTextPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2.0),
+                          Text(
+                            isGuest ? 'Notes save locally. Sign in to backup to cloud.' : (user.email ?? 'Cloud sync active'),
+                            style: AppTypography.uiLabel(
+                              fontSize: 12.0,
+                              color: context.appTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        if (isGuest) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => LoginScreen(authService: auth)),
+                          );
+                        } else {
+                          await auth.signOut();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Signed out successfully')),
+                            );
+                          }
+                        }
+                      },
+                      child: Text(
+                        isGuest ? 'Sign In' : 'Sign Out',
                         style: AppTypography.uiLabel(
-                          fontSize: 12.0,
-                          color: context.appTextSecondary,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: isGuest ? context.appTextPrimary : Colors.redAccent,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () async {
-                    if (isGuest) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => LoginScreen(authService: auth)),
-                      );
-                    } else {
-                      await auth.signOut();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Signed out successfully')),
-                        );
-                      }
-                    }
-                  },
-                  child: Text(
-                    isGuest ? 'Sign In' : 'Sign Out',
-                    style: AppTypography.uiLabel(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: isGuest ? context.appTextPrimary : Colors.redAccent,
+                if (!isGuest) ...[
+                  Divider(color: context.appBorderSubtle, height: 24.0),
+                  InkWell(
+                    onTap: () => _showSetPasswordDialog(context, auth),
+                    borderRadius: BorderRadius.circular(8.0),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 20.0,
+                            color: context.appTextSecondary,
+                          ),
+                          const SizedBox(width: 12.0),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  auth.hasPasswordProvider ? 'Change Account Password' : 'Set Account Password',
+                                  style: AppTypography.uiHeadline(
+                                    fontSize: 14.0,
+                                    fontWeight: FontWeight.w500,
+                                    color: context.appTextPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2.0),
+                                Text(
+                                  auth.hasPasswordProvider
+                                      ? 'Sign in via Google or with your password'
+                                      : 'Set a password to also log in via email',
+                                  style: AppTypography.uiLabel(
+                                    fontSize: 12.0,
+                                    color: context.appTextSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: context.appTextSecondary,
+                            size: 20.0,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -299,6 +353,188 @@ class SettingsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showSetPasswordDialog(BuildContext context, AuthService auth) {
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool obscure = true;
+    bool isLoading = false;
+    String? errorText;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.0)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24.0,
+                right: 24.0,
+                top: 24.0,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24.0,
+              ),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.lock_outline_rounded, color: context.appTextPrimary, size: 22.0),
+                        const SizedBox(width: 10.0),
+                        Text(
+                          auth.hasPasswordProvider ? 'Change Password' : 'Set Account Password',
+                          style: AppTypography.uiHeadline(
+                            fontSize: 18.0,
+                            fontWeight: FontWeight.w600,
+                            color: context.appTextPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8.0),
+                    Text(
+                      auth.hasPasswordProvider
+                          ? 'Update your password for email sign-in (${auth.currentUser?.email}).'
+                          : 'Set a password to log into Tigris using either Google OR email/password (${auth.currentUser?.email}).',
+                      style: AppTypography.uiLabel(
+                        fontSize: 13.0,
+                        color: context.appTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 20.0),
+                    if (errorText != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10.0),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        child: Text(
+                          errorText!,
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 13.0),
+                        ),
+                      ),
+                      const SizedBox(height: 14.0),
+                    ],
+                    TextFormField(
+                      controller: passwordController,
+                      obscureText: obscure,
+                      style: TextStyle(color: context.appTextPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'New Password',
+                        labelStyle: TextStyle(color: context.appTextSecondary),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            color: context.appTextSecondary,
+                            size: 20.0,
+                          ),
+                          onPressed: () => setModalState(() => obscure = !obscure),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().length < 6) {
+                          return 'Must be at least 6 characters.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14.0),
+                    TextFormField(
+                      controller: confirmController,
+                      obscureText: obscure,
+                      style: TextStyle(color: context.appTextPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Confirm Password',
+                        labelStyle: TextStyle(color: context.appTextSecondary),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v != passwordController.text) {
+                          return 'Passwords do not match.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 22.0),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: context.appTextPrimary,
+                        foregroundColor: context.appBg,
+                        padding: const EdgeInsets.symmetric(vertical: 14.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                      ),
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                              if (!formKey.currentState!.validate()) return;
+                              setModalState(() {
+                                isLoading = true;
+                                errorText = null;
+                              });
+                              try {
+                                await auth.setOrUpdatePassword(passwordController.text.trim());
+                                if (ctx.mounted) {
+                                  Navigator.of(ctx).pop();
+                                }
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        auth.hasPasswordProvider
+                                            ? 'Password updated successfully!'
+                                            : 'Password set! You can now log in with Google or Email.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                setModalState(() {
+                                  isLoading = false;
+                                  final msg = e.toString().replaceFirst('Exception: ', '');
+                                  if (msg.contains('requires-recent-login')) {
+                                    errorText = 'Please sign out and sign back in with Google before setting a password.';
+                                  } else {
+                                    errorText = msg;
+                                  }
+                                });
+                              }
+                            },
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 18.0,
+                              width: 18.0,
+                              child: CircularProgressIndicator(strokeWidth: 2.0),
+                            )
+                          : Text(
+                              auth.hasPasswordProvider ? 'Update Password' : 'Save Password',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15.0),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
