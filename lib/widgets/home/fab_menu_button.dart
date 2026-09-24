@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_typography.dart';
+import '../../app/theme/context_theme_extensions.dart';
 
 class FabMenuButton extends StatelessWidget {
   final VoidCallback onCreateNote;
@@ -14,12 +14,14 @@ class FabMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       key: const Key('home_fab_menu'),
-      offset: const Offset(0, -70), // Opens drop-up menu ABOVE the FAB
-      elevation: 6,
-      color: AppColors.surface,
+      offset: const Offset(0, -46),
+      elevation: 4,
+      color: context.appSurface,
+      menuPadding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 100, maxWidth: 120),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.0),
-        side: const BorderSide(color: AppColors.borderSubtle, width: 1.0),
+        borderRadius: BorderRadius.circular(10.0),
+        side: BorderSide(color: context.appBorderSubtle, width: 1.0),
       ),
       onSelected: (value) {
         if (value == 'new_note') {
@@ -29,39 +31,32 @@ class FabMenuButton extends StatelessWidget {
       itemBuilder: (context) => [
         PopupMenuItem<String>(
           value: 'new_note',
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.edit_note_rounded,
-                size: 20.0,
-                color: AppColors.textPrimary,
+          height: 38.0,
+          padding: const EdgeInsets.symmetric(horizontal: 14.0),
+          child: Center(
+            child: Text(
+              'New note',
+              style: AppTypography.uiHeadline(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: context.appTextPrimary,
               ),
-              const SizedBox(width: 12.0),
-              Text(
-                'New note',
-                style: AppTypography.uiHeadline(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ],
       child: Material(
         elevation: 4.0,
         shape: const CircleBorder(),
-        color: AppColors.textPrimary,
-        child: const SizedBox(
-          width: 56.0,
-          height: 56.0,
+        color: context.appTextPrimary,
+        child: SizedBox(
+          width: 44.0,
+          height: 44.0,
           child: Center(
             child: Icon(
               Icons.add_rounded,
-              color: AppColors.surface,
-              size: 28.0,
+              color: context.appBg,
+              size: 24.0,
             ),
           ),
         ),

@@ -11,6 +11,7 @@ import 'package:tigris/repositories/local_review_repository.dart';
 import 'package:tigris/screens/home_screen.dart';
 import 'package:tigris/screens/notes_screen.dart';
 import 'package:tigris/screens/note_detail_screen.dart';
+import 'package:tigris/widgets/editor/block_note_editor.dart';
 
 void main() {
   setUp(() {
@@ -253,18 +254,28 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Reflections on strategy'), findsOneWidget);
-      expect(find.text('Add page'), findsOneWidget);
 
-      // 5. Tap "Add page" to create child note directly as full-screen page
-      await tester.tap(find.text('Add page'));
+      // 5. Tap "+" toolbar button to add a Page block inline
+      await tester.tap(find.text('+'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Page'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Create New Page Note'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'Smart Q Estates');
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle(const Duration(milliseconds: 700));
+
+      // Inline page block is displayed
+      expect(find.text('Smart Q Estates'), findsOneWidget);
+
+      // Tap inline page block to open full-screen note
+      await tester.tap(find.text('Smart Q Estates'));
       await tester.pumpAndSettle();
 
       expect(find.byType(NoteDetailScreen), findsOneWidget);
       // Breadcrumb displays parent 'Business'
       expect(find.text('Business'), findsOneWidget);
-
-      await tester.enterText(find.byType(TextField).at(0), 'Smart Q Estates');
-      await tester.pumpAndSettle(const Duration(milliseconds: 700));
 
       // 6. Navigate back up to parent
       await tester.tap(find.byType(IconButton).first);
@@ -428,7 +439,7 @@ void main() {
 
         // Check NoteDetailScreen for overflow
         expect(tester.takeException(), isNull);
-        expect(find.text('Add page'), findsOneWidget);
+        expect(find.byType(BlockNoteEditor), findsOneWidget);
       });
     }
   });

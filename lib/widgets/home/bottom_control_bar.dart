@@ -89,11 +89,13 @@ class BottomControlBar extends StatelessWidget {
             // Right: Compact FAB Menu Button
             PopupMenuButton<String>(
               key: const Key('home_fab_menu'),
-              offset: const Offset(0, -60),
-              elevation: 6,
+              offset: const Offset(0, -46),
+              elevation: 4,
               color: context.appSurface,
+              menuPadding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 100, maxWidth: 120),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.0),
+                borderRadius: BorderRadius.circular(10.0),
                 side: BorderSide(color: context.appBorderSubtle, width: 1.0),
               ),
               onSelected: (value) {
@@ -104,24 +106,17 @@ class BottomControlBar extends StatelessWidget {
               itemBuilder: (context) => [
                 PopupMenuItem<String>(
                   value: 'new_note',
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.edit_note_rounded,
-                        size: 20.0,
+                  height: 38.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                  child: Center(
+                    child: Text(
+                      'New note',
+                      style: AppTypography.uiHeadline(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
                         color: context.appTextPrimary,
                       ),
-                      const SizedBox(width: 12.0),
-                      Text(
-                        'New note',
-                        style: AppTypography.uiHeadline(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: context.appTextPrimary,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],

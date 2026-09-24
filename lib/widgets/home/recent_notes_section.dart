@@ -18,12 +18,14 @@ class RecentNotesSection extends StatefulWidget {
   final List<Note> notes;
   final VoidCallback onCreateNote;
   final ValueChanged<Note>? onOpenNote;
+  final ValueChanged<Note>? onLongPressNote;
 
   const RecentNotesSection({
     super.key,
     required this.notes,
     required this.onCreateNote,
     this.onOpenNote,
+    this.onLongPressNote,
   });
 
   @override
@@ -187,6 +189,8 @@ class _RecentNotesSectionState extends State<RecentNotesSection> {
                 onTap: () {
                   if (widget.onOpenNote != null) widget.onOpenNote!(note);
                 },
+                onLongPress: widget.onLongPressNote != null ? () => widget.onLongPressNote!(note) : null,
+                onOptionsTap: widget.onLongPressNote != null ? () => widget.onLongPressNote!(note) : null,
               );
             },
           ),

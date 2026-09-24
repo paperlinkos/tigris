@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/note.dart';
 import 'note_repository.dart';
 
@@ -18,6 +19,12 @@ class FirestoreNoteRepository implements NoteRepository {
     if (id != null && id.isNotEmpty) {
       return id;
     }
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null && uid.isNotEmpty) {
+        return uid;
+      }
+    } catch (_) {}
     return 'guest_user';
   }
 
@@ -86,6 +93,21 @@ class FirestoreNoteRepository implements NoteRepository {
     } catch (_) {
       return [];
     }
+  }
+
+  @override
+  Stream<List<Note>> watchAllNotes() {
+    return _collection.snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => Note.fromJson(doc.data())).toList();
+    }).handleError((_) => <Note>[]);
+  }
+
+  @override
+  Stream<List<Note>> watchRecentNotes({int limit = 10}) {
+    return watchAllNotes().map((all) {
+      final sorted = List<Note>.from(all)..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      return sorted.take(limit).toList();
+    });
   }
 
   @override

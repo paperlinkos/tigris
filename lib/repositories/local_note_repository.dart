@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../models/note.dart';
 import '../persistence/storage_interface.dart';
 import 'note_repository.dart';
@@ -5,6 +6,7 @@ import 'note_repository.dart';
 class LocalNoteRepository implements NoteRepository {
   static const String collection = 'notes';
   final StorageInterface _storage;
+  final StreamController<List<Note>> _notesController = StreamController<List<Note>>.broadcast();
 
   LocalNoteRepository({required StorageInterface storage}) : _storage = storage;
 
@@ -38,6 +40,47 @@ class LocalNoteRepository implements NoteRepository {
     final all = await getAllNotes();
     all.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return all.take(limit).toList();
+  }
+
+  @override
+  Stream<List<Note>> watchAllNotes() {
+    late final StreamController<List<Note>> controller;
+    StreamSubscription<List<Note>>? sub;
+
+    controller = StreamController<List<Note>>(
+      onListen: () {
+        sub = _notesController.stream.listen((data) {
+          if (!controller.isClosed) {
+            controller.add(data);
+          }
+        });
+        getAllNotes().then((all) {
+          if (!controller.isClosed) {
+            controller.add(all);
+          }
+        });
+      },
+      onCancel: () {
+        sub?.cancel();
+      },
+    );
+
+    return controller.stream;
+  }
+
+  @override
+  Stream<List<Note>> watchRecentNotes({int limit = 10}) {
+    return watchAllNotes().map((all) {
+      final sorted = List<Note>.from(all)..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      return sorted.take(limit).toList();
+    });
+  }
+
+  Future<void> notifyChanged() async {
+    if (!_notesController.isClosed) {
+      final all = await getAllNotes();
+      _notesController.add(all);
+    }
   }
 
   @override
@@ -109,6 +152,7 @@ class LocalNoteRepository implements NoteRepository {
     }
 
     await _storage.set(collection, note.id, note.toJson());
+    await notifyChanged();
   }
 
   @override
@@ -134,6 +178,22 @@ class LocalNoteRepository implements NoteRepository {
 
     // Safely delete subtree recursively
     await _deleteSubtree(id);
+    await notifyChanged();
+  }
+
+  static const String deletedCollection = 'deleted_notes';
+
+  Future<void> recordDeletedNoteId(String id) async {
+    await _storage.set(deletedCollection, id, {'id': id, 'deletedAt': DateTime.now().toIso8601String()});
+  }
+
+  Future<Set<String>> getDeletedNoteIds() async {
+    final items = await _storage.getAll(deletedCollection);
+    return items.map((item) => item['id'] as String).toSet();
+  }
+
+  Future<void> clearDeletedNoteId(String id) async {
+    await _storage.delete(deletedCollection, id);
   }
 
   Future<void> _deleteSubtree(String targetId) async {
@@ -152,7 +212,12 @@ class LocalNoteRepository implements NoteRepository {
         }
       }
     }
+    await recordDeletedNoteId(targetId);
     await _storage.delete(collection, targetId);
+  }
+
+  void dispose() {
+    _notesController.close();
   }
 }
 

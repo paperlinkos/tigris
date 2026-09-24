@@ -40,6 +40,67 @@ void main() {
         ),
       );
     });
+
+    test('WYSIWYG: toggleBold formats selected text without inserting ** characters', () {
+      final controller = RichTextEditingController(text: 'Hello world');
+      // Select 'world' (offset 6 to 11)
+      controller.selection = const TextSelection(baseOffset: 6, extentOffset: 11);
+
+      // Apply bold
+      controller.toggleBold();
+
+      // Text itself MUST remain clean without any '**' characters
+      expect(controller.text, equals('Hello world'));
+      expect(controller.text.contains('**'), isFalse);
+      expect(controller.spans.length, equals(1));
+      expect(controller.spans.first.start, equals(6));
+      expect(controller.spans.first.end, equals(11));
+      expect(controller.spans.first.type, equals(AttributeType.bold));
+
+      // Re-selecting and toggling removes the bold formatting
+      controller.toggleBold();
+      expect(controller.spans.isEmpty, isTrue);
+      expect(controller.text, equals('Hello world'));
+    });
+
+    test('WYSIWYG: Serialization and deserialization preserves formatting', () {
+      final controller = RichTextEditingController(text: 'Important note');
+      controller.selection = const TextSelection(baseOffset: 0, extentOffset: 9);
+      controller.toggleBold();
+
+      final json = controller.exportFormatting();
+      expect(json, isNotNull);
+      expect(json, contains('"type":"bold"'));
+
+      // Reload into another controller
+      final reloaded = RichTextEditingController.fromNoteContent(
+        content: 'Important note',
+        formatting: json,
+      );
+      expect(reloaded.text, equals('Important note'));
+      expect(reloaded.spans.length, equals(1));
+      expect(reloaded.spans.first.start, equals(0));
+      expect(reloaded.spans.first.end, equals(9));
+      expect(reloaded.spans.first.type, equals(AttributeType.bold));
+    });
+
+    test('WYSIWYG: Typing text shifts span offsets automatically', () {
+      final controller = RichTextEditingController(text: 'World');
+      controller.selection = const TextSelection(baseOffset: 0, extentOffset: 5);
+      controller.toggleBold();
+
+      // Prepend 'Hello ' before 'World'
+      controller.value = const TextEditingValue(
+        text: 'Hello World',
+        selection: TextSelection.collapsed(offset: 6),
+      );
+
+      // Span for 'World' should be shifted to [6, 11]
+      expect(controller.spans.length, equals(1));
+      expect(controller.spans.first.start, equals(6));
+      expect(controller.spans.first.end, equals(11));
+      expect(controller.spans.first.type, equals(AttributeType.bold));
+    });
   });
 
   group('TaskRepository Checklist Tests', () {

@@ -34,7 +34,7 @@ void main() {
       await tester.tap(find.byKey(const Key('sidebar_toggle_button')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('Streams'), findsOneWidget);
+      expect(find.text('STREAMS'), findsOneWidget);
 
       // Verify Settings in sidebar drawer
       await tester.tap(find.text('Settings'));

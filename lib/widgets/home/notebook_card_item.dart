@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_typography.dart';
 import '../../app/theme/context_theme_extensions.dart';
 import '../../models/note.dart';
+import '../../models/note_block.dart';
 
 class NotebookCardItem extends StatelessWidget {
   final Note note;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onOptionsTap;
 
   const NotebookCardItem({
     super.key,
     required this.note,
     required this.onTap,
+    this.onLongPress,
+    this.onOptionsTap,
   });
 
   String _formatRelativeDate(DateTime date) {
@@ -32,16 +37,35 @@ class NotebookCardItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trimmedContent = note.content.trim();
-    final previewContent = trimmedContent.isNotEmpty
-        ? trimmedContent.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => '').trim()
-        : (note.subtitle ?? '');
-    final pageCount = note.childrenIds.length;
+    final firstBlock = note.blocks.firstWhere(
+      (b) => b.content.trim().isNotEmpty || b.type == BlockType.page,
+      orElse: () => note.blocks.first,
+    );
+    String previewContent = '';
+    if (firstBlock.type == BlockType.page) {
+      previewContent = '→ Subpage';
+    } else if (firstBlock.type == BlockType.bullet) {
+      final clean = cleanMarkerPrefix(firstBlock.content);
+      previewContent = clean.isNotEmpty ? '• $clean' : '';
+    } else if (firstBlock.type == BlockType.number) {
+      final clean = cleanMarkerPrefix(firstBlock.content);
+      previewContent = clean.isNotEmpty ? '1. $clean' : '';
+    } else {
+      previewContent = cleanMarkerPrefix(firstBlock.content);
+    }
+    if (previewContent.isEmpty) {
+      previewContent = note.subtitle ?? '';
+    }
+    final inlinePageIds = note.blocks
+        .where((b) => b.type == BlockType.page && (b.targetNoteId?.isNotEmpty ?? false))
+        .map((b) => b.targetNoteId!);
+    final pageCount = {...note.childrenIds, ...inlinePageIds}.length;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress ?? onOptionsTap,
         borderRadius: BorderRadius.circular(14.0),
         child: Container(
           width: double.infinity,
@@ -60,6 +84,7 @@ class NotebookCardItem extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // Top Row: Title + Options Menu
               Row(
@@ -76,10 +101,17 @@ class NotebookCardItem extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8.0),
-                  Icon(
-                    Icons.more_horiz_rounded,
-                    size: 18.0,
-                    color: context.appTextTertiary,
+                  GestureDetector(
+                    onTap: onOptionsTap ?? onLongPress,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        Icons.more_horiz_rounded,
+                        size: 18.0,
+                        color: context.appTextTertiary,
+                      ),
+                    ),
                   ),
                 ],
               ),

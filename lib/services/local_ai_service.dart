@@ -1,5 +1,6 @@
 import '../models/ai_responses.dart';
 import '../models/flashcard.dart';
+import '../models/note_analysis.dart';
 import '../models/quiz.dart';
 import 'ai_service.dart';
 
@@ -23,7 +24,55 @@ class LocalAiService implements AiService {
   }
 
   @override
-  Future<AiSummaryResponse> summarizeNote({required String noteContent}) async {
+  Future<NoteAnalysis> analyzeNote({
+    required String noteId,
+    required String content,
+  }) async {
+    _checkFailure();
+    final clean = content.trim();
+    if (clean.isEmpty) {
+      throw ArgumentError('Note content cannot be empty.');
+    }
+
+    final sentences = _extractSentences(clean);
+    final keyPoints = sentences.take(4).toList();
+
+    // Check for abbreviations like H.E.Z.P. or HEZP or all-caps words (2-6 chars)
+    final abbreviationRegex = RegExp(r'(?:[A-Z]\.){2,}[A-Z]?\.?|\b[A-Z]{2,6}\b');
+    final matches = abbreviationRegex.allMatches(clean);
+    final unknownTerms = <UnknownTerm>[];
+    final seen = <String>{};
+
+    for (final m in matches) {
+      final term = m.group(0)!;
+      if (!seen.contains(term) && term != 'AI' && term != 'AM' && term != 'PM') {
+        seen.add(term);
+        unknownTerms.add(
+          UnknownTerm(
+            term: term,
+            reason:
+                'The abbreviation appears meaningful but its definition cannot be determined confidently from the note.',
+          ),
+        );
+      }
+    }
+
+    return NoteAnalysis(
+      title: sentences.isNotEmpty ? sentences.first : 'Untitled Note',
+      date: '',
+      service: '',
+      speaker: '',
+      topics: sentences.isNotEmpty ? ['Study', 'Notes'] : [],
+      keyPoints: keyPoints,
+      unknownTerms: unknownTerms,
+    );
+  }
+
+  @override
+  Future<AiSummaryResponse> summarizeNote({
+    String? noteTitle,
+    required String noteContent,
+  }) async {
     _checkFailure();
     final clean = noteContent.trim();
     if (clean.isEmpty) {
@@ -50,6 +99,7 @@ class LocalAiService implements AiService {
   @override
   Future<List<Flashcard>> generateFlashcards({
     required String noteId,
+    String? noteTitle,
     required String noteContent,
   }) async {
     _checkFailure();
@@ -94,6 +144,7 @@ class LocalAiService implements AiService {
   @override
   Future<List<QuizQuestion>> generateQuiz({
     required String noteId,
+    String? noteTitle,
     required String noteContent,
   }) async {
     _checkFailure();
@@ -150,7 +201,10 @@ class LocalAiService implements AiService {
   }
 
   @override
-  Future<AiExplainResponse> explainNote({required String noteContent}) async {
+  Future<AiExplainResponse> explainNote({
+    String? noteTitle,
+    required String noteContent,
+  }) async {
     _checkFailure();
     final clean = noteContent.trim();
     if (clean.isEmpty) {

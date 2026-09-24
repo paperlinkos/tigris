@@ -43,6 +43,16 @@ class OfflineFirstNoteRepository implements NoteRepository {
   }
 
   @override
+  Stream<List<Note>> watchRecentNotes({int limit = 10}) {
+    return localRepo.watchRecentNotes(limit: limit);
+  }
+
+  @override
+  Stream<List<Note>> watchAllNotes() {
+    return localRepo.watchAllNotes();
+  }
+
+  @override
   Future<List<Note>> searchNotes(String query) async {
     return await localRepo.searchNotes(query);
   }
@@ -107,22 +117,40 @@ class OfflineFirstNoteRepository implements NoteRepository {
     try {
       syncService?.setSyncing();
 
+      final deletedIds = await localRepo.getDeletedNoteIds();
+      // 1. Purge tombstones from Firestore first
+      for (final deletedId in deletedIds) {
+        try {
+          await firestoreRepo!.deleteNote(deletedId);
+          await localRepo.clearDeletedNoteId(deletedId);
+        } catch (_) {}
+      }
+
       final localNotes = await localRepo.getAllNotes();
       final cloudNotes = await firestoreRepo!.getAllNotes();
 
       final localMap = {for (final n in localNotes) n.id: n};
       final cloudMap = {for (final n in cloudNotes) n.id: n};
 
-      // 1. Push local notes to cloud if missing or newer locally
+      // 2. Push local notes to cloud if missing or newer locally
       for (final localNote in localNotes) {
+        if (deletedIds.contains(localNote.id)) continue;
         final cloudNote = cloudMap[localNote.id];
         if (cloudNote == null || localNote.updatedAt.isAfter(cloudNote.updatedAt)) {
           await firestoreRepo!.saveNote(localNote);
         }
       }
 
-      // 2. Pull cloud notes to local if missing or newer in cloud
+      // 3. Pull cloud notes to local if missing or newer in cloud (skipping deleted tombstones)
       for (final cloudNote in cloudNotes) {
+        if (deletedIds.contains(cloudNote.id)) {
+          try {
+            await firestoreRepo!.deleteNote(cloudNote.id);
+            await localRepo.clearDeletedNoteId(cloudNote.id);
+          } catch (_) {}
+          continue;
+        }
+
         final localNote = localMap[cloudNote.id];
         if (localNote == null || cloudNote.updatedAt.isAfter(localNote.updatedAt)) {
           await localRepo.saveNote(cloudNote);

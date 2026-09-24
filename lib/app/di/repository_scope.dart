@@ -4,7 +4,7 @@ import '../../repositories/note_repository.dart';
 import '../../repositories/quiz_repository.dart';
 import '../../repositories/review_repository.dart';
 import '../../services/ai_service.dart';
-import '../../services/local_ai_service.dart';
+import '../../services/firebase_ai_service.dart';
 import '../../services/review_scheduler_service.dart';
 
 class RepositoryScope extends InheritedWidget {
@@ -15,16 +15,17 @@ class RepositoryScope extends InheritedWidget {
   final ReviewSchedulerService reviewScheduler;
   final AiService aiService;
 
-  const RepositoryScope({
+  RepositoryScope({
     super.key,
     required this.noteRepository,
     required this.reviewRepository,
     this.flashcardRepository,
     this.quizRepository,
     ReviewSchedulerService? reviewScheduler,
-    this.aiService = const LocalAiService(),
+    AiService? aiService,
     required super.child,
-  }) : reviewScheduler = reviewScheduler ?? const _DefaultScheduler();
+  })  : reviewScheduler = reviewScheduler ?? const _DefaultScheduler(),
+        aiService = aiService ?? FirebaseAiService();
 
   static RepositoryScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<RepositoryScope>();

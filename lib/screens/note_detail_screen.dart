@@ -1,25 +1,31 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../app/di/repository_scope.dart';
 import '../app/theme/app_colors.dart';
 import '../app/theme/app_typography.dart';
 import '../app/theme/context_theme_extensions.dart';
-import '../controllers/rich_text_editing_controller.dart';
 import '../models/note.dart';
+import '../models/note_block.dart';
 import '../repositories/note_repository.dart';
 import '../services/local_ai_service.dart';
 import '../widgets/ai/ai_actions_sheet.dart';
+import '../widgets/ai/note_analysis_sheet.dart';
+import '../widgets/editor/block_note_editor.dart';
+import '../widgets/editor/page_block_picker_sheet.dart';
 
 class NoteDetailScreen extends StatefulWidget {
   final String noteId;
   final Note? initialNote;
   final NoteRepository? noteRepository;
+  final List<Note>? navigationAncestors;
 
   const NoteDetailScreen({
     super.key,
     required this.noteId,
     this.initialNote,
     this.noteRepository,
+    this.navigationAncestors,
   });
 
   @override
@@ -27,7 +33,6 @@ class NoteDetailScreen extends StatefulWidget {
 }
 
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
-  // Track active note IDs currently in the navigator stack for logical hierarchy pops
   static final Set<String> _activeNoteIdsInStack = <String>{};
 
   Note? _note;
@@ -36,9 +41,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   bool _isLoading = true;
 
   late final TextEditingController _titleController;
-  late final SmartListController _contentController;
   final FocusNode _titleFocusNode = FocusNode();
-  final FocusNode _contentFocusNode = FocusNode();
+  final GlobalKey<State<BlockNoteEditor>> _editorKey = GlobalKey<State<BlockNoteEditor>>();
+
+  List<NoteBlock> _currentBlocks = [];
 
   Timer? _debounceTimer;
   bool _isSaving = false;
@@ -53,18 +59,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _activeNoteIdsInStack.add(widget.noteId);
     _note = widget.initialNote;
 
-    final initialContent = (_note?.content != null && _note!.content.isNotEmpty)
-        ? _note!.content
-        : (_note?.subtitle ?? '');
-
     _titleController = TextEditingController(text: _note?.title ?? '');
-    _contentController = SmartListController(text: initialContent);
-
     _titleController.addListener(_onFieldChanged);
-    _contentController.addListener(_onFieldChanged);
-
     _titleFocusNode.addListener(_onFocusChanged);
-    _contentFocusNode.addListener(_onFocusChanged);
+
+    if (_note != null) {
+      _currentBlocks = List.from(_note!.blocks);
+    }
   }
 
   void _onFocusChanged() {
@@ -76,16 +77,12 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _activeNoteIdsInStack.remove(widget.noteId);
     _debounceTimer?.cancel();
     _titleController.removeListener(_onFieldChanged);
-    _contentController.removeListener(_onFieldChanged);
     _titleFocusNode.removeListener(_onFocusChanged);
-    _contentFocusNode.removeListener(_onFocusChanged);
 
     _saveCurrentChangesSync();
 
     _titleController.dispose();
-    _contentController.dispose();
     _titleFocusNode.dispose();
-    _contentFocusNode.dispose();
     super.dispose();
   }
 
@@ -97,17 +94,32 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     });
   }
 
+  void _onBlocksChanged(List<NoteBlock> updatedBlocks) {
+    _currentBlocks = List.from(updatedBlocks);
+    _onFieldChanged();
+  }
+
   Future<void> _saveCurrentChanges() async {
     if (_note == null || !_hasUnsavedChanges) return;
     final repo = _repo;
     if (repo == null) return;
 
     final updatedTitle = _titleController.text.trim();
-    final updatedContent = _contentController.text;
+    final blocksJson = jsonEncode(_currentBlocks.map((b) => b.toJson()).toList());
+    final plainTextContent = _currentBlocks.map((b) => b.content).join('\n');
+    final pageBlockNoteIds = _currentBlocks
+        .where((b) => b.type == BlockType.page && b.targetNoteId != null && b.targetNoteId!.isNotEmpty)
+        .map((b) => b.targetNoteId!)
+        .toSet()
+        .toList();
 
     final updated = _note!.copyWith(
       title: updatedTitle.isNotEmpty ? updatedTitle : 'Untitled',
-      content: updatedContent,
+      content: plainTextContent,
+      blocksJson: blocksJson,
+      childrenIds: pageBlockNoteIds.isNotEmpty
+          ? {..._note!.childrenIds, ...pageBlockNoteIds}.toList()
+          : _note!.childrenIds,
       updatedAt: DateTime.now(),
     );
 
@@ -132,11 +144,21 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (repo == null) return;
 
     final updatedTitle = _titleController.text.trim();
-    final updatedContent = _contentController.text;
+    final blocksJson = jsonEncode(_currentBlocks.map((b) => b.toJson()).toList());
+    final plainTextContent = _currentBlocks.map((b) => b.content).join('\n');
+    final pageBlockNoteIds = _currentBlocks
+        .where((b) => b.type == BlockType.page && b.targetNoteId != null && b.targetNoteId!.isNotEmpty)
+        .map((b) => b.targetNoteId!)
+        .toSet()
+        .toList();
 
     final updated = _note!.copyWith(
       title: updatedTitle.isNotEmpty ? updatedTitle : 'Untitled',
-      content: updatedContent,
+      content: plainTextContent,
+      blocksJson: blocksJson,
+      childrenIds: pageBlockNoteIds.isNotEmpty
+          ? {..._note!.childrenIds, ...pageBlockNoteIds}.toList()
+          : _note!.childrenIds,
       updatedAt: DateTime.now(),
     );
 
@@ -167,10 +189,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       return;
     }
 
-    final ancestors = await repo.getAncestorPath(note.id);
+    final ancestors = widget.navigationAncestors ?? await repo.getAncestorPath(note.id);
     final rawChildren = await repo.getChildNotes(note.id);
 
-    // Filter out abandoned empty drafts
     final children = <Note>[];
     for (final child in rawChildren) {
       final isAbandoned = (child.title.trim().isEmpty || child.title == 'Untitled') &&
@@ -188,9 +209,24 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         if (_titleController.text != note.title) {
           _titleController.text = note.title;
         }
-        final noteBody = note.content.isNotEmpty ? note.content : (note.subtitle ?? '');
-        if (_contentController.text != noteBody) {
-          _contentController.text = noteBody;
+        _currentBlocks = List.from(note.blocks);
+        for (final child in children) {
+          final alreadyPresent = _currentBlocks.any(
+            (b) => b.type == BlockType.page && b.targetNoteId == child.id,
+          );
+          if (!alreadyPresent) {
+            if (_currentBlocks.length == 1 &&
+                _currentBlocks.first.type == BlockType.text &&
+                _currentBlocks.first.content.isEmpty) {
+              _currentBlocks = [
+                NoteBlock(type: BlockType.page, targetNoteId: child.id),
+              ];
+            } else {
+              _currentBlocks.add(
+                NoteBlock(type: BlockType.page, targetNoteId: child.id),
+              );
+            }
+          }
         }
       }
 
@@ -200,48 +236,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         _childNotes = children;
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _addChildPage() async {
-    if (_note == null) return;
-    await _saveCurrentChanges();
-    final repo = _repo;
-    if (repo == null || !mounted) return;
-
-    final newChild = Note(
-      id: 'note_${DateTime.now().millisecondsSinceEpoch}',
-      parentId: _note!.id,
-      title: '',
-      content: '',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-
-    await repo.saveNote(newChild);
-
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        settings: RouteSettings(name: '/note/${newChild.id}'),
-        builder: (context) => NoteDetailScreen(
-          noteId: newChild.id,
-          initialNote: newChild,
-          noteRepository: repo,
-        ),
-      ),
-    );
-
-    if (mounted) {
-      // Discard empty draft if user popped back without writing anything
-      final savedChild = await repo.getNote(newChild.id);
-      if (savedChild != null &&
-          (savedChild.title.trim().isEmpty || savedChild.title == 'Untitled') &&
-          savedChild.content.trim().isEmpty &&
-          savedChild.childrenIds.isEmpty) {
-        await repo.deleteNote(newChild.id);
-      }
-      await _loadNoteData();
     }
   }
 
@@ -268,17 +262,17 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     }
   }
 
-  Future<void> _openChildNote(Note child) async {
+  Future<void> _openPageBlockNote(String targetNoteId) async {
     await _saveCurrentChanges();
     if (!mounted) return;
 
     final deleted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        settings: RouteSettings(name: '/note/${child.id}'),
+        settings: RouteSettings(name: '/note/$targetNoteId'),
         builder: (context) => NoteDetailScreen(
-          noteId: child.id,
-          initialNote: child,
+          noteId: targetNoteId,
           noteRepository: _repo,
+          navigationAncestors: [..._ancestors, ?_note],
         ),
       ),
     );
@@ -360,6 +354,52 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     }
   }
 
+  String _getFormattedContent() {
+    if (_note == null) return '';
+    final formattedBuffer = StringBuffer();
+    for (final b in _currentBlocks) {
+      final indent = '  ' * b.indentLevel;
+      switch (b.type) {
+        case BlockType.heading:
+          formattedBuffer.writeln('\n$indent# ${b.content}');
+          break;
+        case BlockType.bullet:
+          formattedBuffer.writeln('$indent• ${b.content}');
+          break;
+        case BlockType.number:
+          formattedBuffer.writeln('${indent}1. ${b.content}');
+          break;
+        case BlockType.page:
+          formattedBuffer.writeln('$indent[Subpage: ${b.content}]');
+          break;
+        case BlockType.divider:
+          formattedBuffer.writeln('$indent---');
+          break;
+        case BlockType.text:
+          formattedBuffer.writeln('$indent${b.content}');
+          break;
+      }
+    }
+    return formattedBuffer.toString().trim().isNotEmpty
+        ? formattedBuffer.toString().trim()
+        : _note!.content;
+  }
+
+  Future<void> _openUnderstandNote() async {
+    if (_note == null) return;
+    final aiService = RepositoryScope.maybeOf(context)?.aiService ?? const LocalAiService();
+    await _saveCurrentChanges();
+    if (!mounted) return;
+
+    await NoteAnalysisSheet.show(
+      context,
+      noteId: _note!.id,
+      noteTitle: _note!.title,
+      noteContent: _getFormattedContent(),
+      aiService: aiService,
+    );
+  }
+
   Future<void> _openAiActions() async {
     if (_note == null) return;
     final aiService = RepositoryScope.maybeOf(context)?.aiService ?? const LocalAiService();
@@ -370,7 +410,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       context,
       noteId: _note!.id,
       noteTitle: _note!.title,
-      noteContent: _contentController.text,
+      noteContent: _getFormattedContent(),
       aiService: aiService,
     );
   }
@@ -380,6 +420,122 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (mounted) {
       Navigator.of(context).pop(true);
     }
+  }
+
+  void _showAddBlockPicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.notes_rounded),
+                  title: const Text('Text'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    final state = _editorKey.currentState;
+                    if (state != null) {
+                      dynamic dynamicState = state;
+                      dynamicState.insertTextBlock(BlockType.text);
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.title),
+                  title: const Text('Heading'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    final state = _editorKey.currentState;
+                    if (state != null) {
+                      dynamic dynamicState = state;
+                      dynamicState.insertTextBlock(BlockType.heading);
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Text('•', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  title: const Text('Bullet List'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    final state = _editorKey.currentState;
+                    if (state != null) {
+                      dynamic dynamicState = state;
+                      dynamicState.insertTextBlock(BlockType.bullet);
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Text('1.', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  title: const Text('Numbered List'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    final state = _editorKey.currentState;
+                    if (state != null) {
+                      dynamic dynamicState = state;
+                      dynamicState.insertTextBlock(BlockType.number);
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.description_outlined),
+                  title: const Text('Page'),
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    final selectedNoteId = await showModalBottomSheet<String>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (sheetCtx) => PageBlockPickerSheet(
+                        currentNoteId: widget.noteId,
+                        parentStreamId: _note?.parentId,
+                        noteRepository: _repo,
+                      ),
+                    );
+
+                  if (selectedNoteId != null && mounted) {
+                    final state = _editorKey.currentState;
+                    if (state != null) {
+                      dynamic dynamicState = state;
+                      dynamicState.insertPageBlock(selectedNoteId);
+                    }
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.horizontal_rule),
+                title: const Text('Divider'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  final state = _editorKey.currentState;
+                  if (state != null) {
+                    dynamic dynamicState = state;
+                    dynamicState.insertDividerBlock();
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      );
+    },
+  );
   }
 
   @override
@@ -445,16 +601,33 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 ),
               ),
             TextButton(
+              key: const Key('understand_note_button'),
+              onPressed: _openUnderstandNote,
+              style: TextButton.styleFrom(
+                foregroundColor: context.appTextPrimary,
+                padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                minimumSize: const Size(40.0, 36.0),
+              ),
+              child: Text(
+                'UNDERSTAND NOTE',
+                style: AppTypography.uiHeadline(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: context.appTextPrimary,
+                ),
+              ),
+            ),
+            TextButton(
               onPressed: _openAiActions,
               style: TextButton.styleFrom(
                 foregroundColor: context.appTextPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                minimumSize: const Size(44.0, 36.0),
+                padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                minimumSize: const Size(40.0, 36.0),
               ),
               child: Text(
                 '✦ AI',
                 style: AppTypography.uiHeadline(
-                  fontSize: 13.5,
+                  fontSize: 13.0,
                   fontWeight: FontWeight.w600,
                   color: context.appTextPrimary,
                 ),
@@ -472,11 +645,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         bottomNavigationBar: _buildFormattingToolbar(),
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 12.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Title Section (Breadcrumbs + Title + Date Stamp)
                 _buildBreadcrumbs(),
 
                 TextField(
@@ -498,46 +670,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   maxLines: null,
                   textCapitalization: TextCapitalization.sentences,
                 ),
-                const SizedBox(height: 6.0),
+                const SizedBox(height: 16.0),
 
-                if (_note != null) ...[
-                  Text(
-                    _formatDateStamp(_note!.updatedAt),
-                    style: AppTypography.uiLabel(
-                      fontSize: 12.0,
-                      color: context.appTextTertiary,
-                    ),
-                  ),
-                  const SizedBox(height: 18.0),
-                ] else ...[
-                  const SizedBox(height: 20.0),
-                ],
-
-                // 2. Body Section (The Notes)
-                TextField(
-                  controller: _contentController,
-                  focusNode: _contentFocusNode,
-                  style: AppTypography.body(
-                    fontSize: 17.0,
-                    color: context.appTextPrimary,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Start writing...',
-                    hintStyle: TextStyle(
-                      color: context.appTextTertiary,
-                    ),
-                    border: InputBorder.none,
-                    isCollapsed: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  maxLines: null,
-                  textCapitalization: TextCapitalization.sentences,
+                // Block-based continuous Document Editor
+                BlockNoteEditor(
+                  key: _editorKey,
+                  blocks: _currentBlocks,
+                  noteRepository: _repo,
+                  onChanged: _onBlocksChanged,
+                  onOpenNote: _openPageBlockNote,
                 ),
-
-                const SizedBox(height: 36.0),
-
-                // 3. Child Notes Section
-                _buildChildNotesSection(),
 
                 const SizedBox(height: 56.0),
               ],
@@ -593,223 +735,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     );
   }
 
-  Widget _buildChildNotesSection() {
-    if (_childNotes.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 12.0),
-        child: InkWell(
-          onTap: _addChildPage,
-          borderRadius: BorderRadius.circular(6.0),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 2.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.add_rounded,
-                  size: 18.0,
-                  color: AppColors.textTertiary,
-                ),
-                const SizedBox(width: 6.0),
-                Text(
-                  'Add page',
-                  style: AppTypography.uiLabel(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 4.0),
-            child: Text(
-              'Pages',
-              style: AppTypography.uiLabel(
-                fontSize: 12.0,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textTertiary,
-              ).copyWith(letterSpacing: 0.8),
-            ),
-          ),
-          const SizedBox(height: 6.0),
-          for (final child in _childNotes)
-            InkWell(
-              onTap: () => _openChildNote(child),
-              borderRadius: BorderRadius.circular(6.0),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 9.0, horizontal: 2.0),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.description_outlined,
-                      size: 16.0,
-                      color: AppColors.textTertiary,
-                    ),
-                    const SizedBox(width: 10.0),
-                    Expanded(
-                      child: Text(
-                        child.title.isEmpty ? 'Untitled' : child.title,
-                        style: AppTypography.body(
-                          fontSize: 16.0,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 12.0,
-                      color: AppColors.textTertiary,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          const SizedBox(height: 10.0),
-          InkWell(
-            onTap: _addChildPage,
-            borderRadius: BorderRadius.circular(6.0),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 2.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.add_rounded,
-                    size: 16.0,
-                    color: AppColors.textTertiary,
-                  ),
-                  const SizedBox(width: 6.0),
-                  Text(
-                    'Add page',
-                    style: AppTypography.uiLabel(
-                      fontSize: 13.0,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDateStamp(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-    if (diff.inMinutes < 1) {
-      return 'Updated just now';
-    } else if (diff.inMinutes < 60) {
-      return 'Updated ${diff.inMinutes}m ago';
-    } else if (diff.inHours < 24 && date.day == now.day) {
-      return 'Updated ${diff.inHours}h ago';
-    } else if (diff.inHours < 48 && date.day == now.subtract(const Duration(days: 1)).day) {
-      return 'Updated yesterday';
-    } else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return 'Updated ${date.day} ${months[date.month - 1]}';
-    }
-  }
-
-  void _applyBold() {
-    _contentController.toggleFormat('**');
-  }
-
-  void _applyItalic() {
-    _contentController.toggleFormat('*');
-  }
-
-  void _applyHighlight() {
-    _contentController.toggleFormat('==');
-  }
-
-  void _applyBulletList() {
-    final val = _contentController.value;
-    final selection = val.selection;
-    final text = val.text;
-    if (!selection.isValid) return;
-
-    final cursor = selection.start;
-    final lineStart = text.lastIndexOf('\n', cursor > 0 ? cursor - 1 : 0);
-    final actualLineStart = lineStart == -1 ? 0 : lineStart + 1;
-    final currentLine = text.substring(actualLineStart, cursor);
-
-    if (currentLine.startsWith('• ')) {
-      final newText = text.replaceRange(actualLineStart, actualLineStart + 2, '');
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: (selection.start - 2).clamp(0, newText.length)),
-      );
-    } else {
-      final newText = text.replaceRange(actualLineStart, actualLineStart, '• ');
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: selection.start + 2),
-      );
-    }
-  }
-
-  void _applyNumberedList() {
-    final val = _contentController.value;
-    final selection = val.selection;
-    final text = val.text;
-    if (!selection.isValid) return;
-
-    final cursor = selection.start;
-    final lineStart = text.lastIndexOf('\n', cursor > 0 ? cursor - 1 : 0);
-    final actualLineStart = lineStart == -1 ? 0 : lineStart + 1;
-    final currentLine = text.substring(actualLineStart, cursor);
-
-    final numMatch = RegExp(r'^(\d+)\.\s*').firstMatch(currentLine);
-    if (numMatch != null) {
-      final len = numMatch.group(0)!.length;
-      final newText = text.replaceRange(actualLineStart, actualLineStart + len, '');
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: (selection.start - len).clamp(0, newText.length)),
-      );
-    } else {
-      int nextNum = 1;
-      if (actualLineStart > 0) {
-        final prevLineStart = text.lastIndexOf('\n', actualLineStart - 2);
-        final actualPrevStart = prevLineStart == -1 ? 0 : prevLineStart + 1;
-        final prevLine = text.substring(actualPrevStart, actualLineStart - 1);
-        final prevNumMatch = RegExp(r'^(\d+)\.\s*').firstMatch(prevLine);
-        if (prevNumMatch != null) {
-          nextNum = int.parse(prevNumMatch.group(1)!) + 1;
-        }
-      }
-      final prefix = '$nextNum. ';
-      final newText = text.replaceRange(actualLineStart, actualLineStart, prefix);
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: selection.start + prefix.length),
-      );
-    }
-  }
-
   Widget _buildFormattingToolbar() {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final isContentFocused = _contentFocusNode.hasFocus;
-    final isTitleFocused = _titleFocusNode.hasFocus;
-
-    if (bottomInset == 0 && !isContentFocused && !isTitleFocused) {
-      return const SizedBox.shrink();
-    }
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -822,67 +749,107 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Row(
-        children: [
-          _buildToolbarButton(
-            label: 'B',
-            isBold: true,
-            onTap: _applyBold,
-            tooltip: 'Bold',
-          ),
-          const SizedBox(width: 4.0),
-          _buildToolbarButton(
-            label: 'I',
-            isItalic: true,
-            onTap: _applyItalic,
-            tooltip: 'Italic',
-          ),
-          const SizedBox(width: 4.0),
-          _buildToolbarButton(
-            label: 'H',
-            isHighlight: true,
-            onTap: _applyHighlight,
-            tooltip: 'Highlight',
-          ),
-          const SizedBox(width: 4.0),
-          VerticalDivider(
-            color: context.appBorderSubtle,
-            indent: 10,
-            endIndent: 10,
-            width: 16,
-          ),
-          _buildToolbarButton(
-            label: '•',
-            onTap: _applyBulletList,
-            tooltip: 'Bullet List',
-          ),
-          const SizedBox(width: 4.0),
-          _buildToolbarButton(
-            label: '1.',
-            onTap: _applyNumberedList,
-            tooltip: 'Numbered List',
-          ),
-          const Spacer(),
-          IconButton(
-            icon: Icon(Icons.keyboard_hide_rounded, size: 20.0, color: context.appTextTertiary),
-            onPressed: () {
-              _contentFocusNode.unfocus();
-              _titleFocusNode.unfocus();
-            },
-            tooltip: 'Hide keyboard',
-          ),
-        ],
+        child: Row(
+          children: [
+            _buildToolbarButton(
+              label: 'B',
+              isBold: true,
+              onTap: () {
+                final state = _editorKey.currentState;
+                if (state != null) {
+                  dynamic dynamicState = state;
+                  dynamicState.toggleBold();
+                }
+              },
+              tooltip: 'Bold',
+            ),
+            const SizedBox(width: 4.0),
+            _buildToolbarButton(
+              label: 'I',
+              isItalic: true,
+              onTap: () {
+                final state = _editorKey.currentState;
+                if (state != null) {
+                  dynamic dynamicState = state;
+                  dynamicState.toggleItalic();
+                }
+              },
+              tooltip: 'Italic',
+            ),
+            const SizedBox(width: 4.0),
+            _buildToolbarButton(
+              label: '•',
+              onTap: () {
+                final state = _editorKey.currentState;
+                if (state != null) {
+                  dynamic dynamicState = state;
+                  dynamicState.setBlockType(BlockType.bullet);
+                }
+              },
+              tooltip: 'Bullet List',
+            ),
+            const SizedBox(width: 4.0),
+            _buildToolbarButton(
+              label: '1.',
+              onTap: () {
+                final state = _editorKey.currentState;
+                if (state != null) {
+                  dynamic dynamicState = state;
+                  dynamicState.setBlockType(BlockType.number);
+                }
+              },
+              tooltip: 'Numbered List',
+            ),
+            const SizedBox(width: 4.0),
+            _buildToolbarButton(
+              label: '←',
+              onTap: () {
+                final state = _editorKey.currentState;
+                if (state != null) {
+                  dynamic dynamicState = state;
+                  dynamicState.decreaseIndent();
+                }
+              },
+              tooltip: 'Decrease Indent',
+            ),
+            const SizedBox(width: 4.0),
+            _buildToolbarButton(
+              label: '→',
+              onTap: () {
+                final state = _editorKey.currentState;
+                if (state != null) {
+                  dynamic dynamicState = state;
+                  dynamicState.increaseIndent();
+                }
+              },
+              tooltip: 'Increase Indent',
+            ),
+            const SizedBox(width: 4.0),
+            _buildToolbarButton(
+              label: '+',
+              onTap: _showAddBlockPicker,
+              tooltip: 'Add Block',
+            ),
+            const Spacer(),
+            IconButton(
+              icon: Icon(Icons.keyboard_hide_rounded, size: 20.0, color: context.appTextTertiary),
+              onPressed: () {
+                FocusScope.of(context).unfocus();
+              },
+              tooltip: 'Hide keyboard',
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildToolbarButton({
     required String label,
     required VoidCallback onTap,
     bool isBold = false,
     bool isItalic = false,
-    bool isHighlight = false,
+    bool isActive = false,
     required String tooltip,
   }) {
     return Material(
@@ -894,9 +861,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           width: 36.0,
           height: 32.0,
           alignment: Alignment.center,
-          decoration: isHighlight
+          decoration: isActive
               ? BoxDecoration(
-                  color: context.isDarkMode ? const Color(0xFF665C00) : const Color(0xFFFFF1A8),
+                  color: context.appBorderSubtle.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(4.0),
                 )
               : null,
@@ -913,85 +880,5 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         ),
       ),
     );
-  }
-}
-
-class SmartListController extends RichTextEditingController {
-  SmartListController({super.text});
-
-  @override
-  set value(TextEditingValue newValue) {
-    final oldText = text;
-    final oldSel = selection;
-
-    // Intercept single newline insertion
-    if (newValue.text.length == oldText.length + 1 &&
-        oldSel.isCollapsed &&
-        oldSel.start >= 0 &&
-        oldSel.start <= oldText.length &&
-        newValue.text.length > oldSel.start &&
-        newValue.text[oldSel.start] == '\n') {
-      
-      final cursor = oldSel.start;
-      final lineStart = oldText.lastIndexOf('\n', cursor > 0 ? cursor - 1 : 0);
-      final actualLineStart = lineStart == -1 ? 0 : lineStart + 1;
-      final lineBeforeEnter = oldText.substring(actualLineStart, cursor);
-
-      // 1. Check Bullet list (•, -, *)
-      final bulletMatch = RegExp(r'^(\s*)([•\-\*])\s*(.*)$').firstMatch(lineBeforeEnter);
-      if (bulletMatch != null) {
-        final indent = bulletMatch.group(1)!;
-        final symbol = bulletMatch.group(2)!;
-        final content = bulletMatch.group(3)!;
-
-        if (content.trim().isEmpty) {
-          // Double enter on empty bullet -> Exit list mode
-          final newText = oldText.substring(0, actualLineStart) + oldText.substring(cursor);
-          super.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection.collapsed(offset: actualLineStart),
-          );
-          return;
-        } else {
-          // Continue bullet list
-          final prefix = '\n$indent$symbol ';
-          final newText = oldText.substring(0, cursor) + prefix + oldText.substring(cursor);
-          super.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection.collapsed(offset: cursor + prefix.length),
-          );
-          return;
-        }
-      }
-
-      // 2. Check Numbered list (1., 2., etc)
-      final numMatch = RegExp(r'^(\s*)(\d+)\.\s*(.*)$').firstMatch(lineBeforeEnter);
-      if (numMatch != null) {
-        final indent = numMatch.group(1)!;
-        final numVal = int.parse(numMatch.group(2)!);
-        final content = numMatch.group(3)!;
-
-        if (content.trim().isEmpty) {
-          // Double enter on empty number -> Exit list mode
-          final newText = oldText.substring(0, actualLineStart) + oldText.substring(cursor);
-          super.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection.collapsed(offset: actualLineStart),
-          );
-          return;
-        } else {
-          // Continue numbered list
-          final prefix = '\n$indent${numVal + 1}. ';
-          final newText = oldText.substring(0, cursor) + prefix + oldText.substring(cursor);
-          super.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection.collapsed(offset: cursor + prefix.length),
-          );
-          return;
-        }
-      }
-    }
-
-    super.value = newValue;
   }
 }

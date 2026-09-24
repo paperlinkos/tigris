@@ -6,11 +6,13 @@ import '../../models/note.dart';
 class RecentSquareCards extends StatelessWidget {
   final List<Note> recentNotes;
   final ValueChanged<Note> onOpenNote;
+  final ValueChanged<Note>? onLongPressNote;
 
   const RecentSquareCards({
     super.key,
     required this.recentNotes,
     required this.onOpenNote,
+    this.onLongPressNote,
   });
 
   String _formatRelativeDate(DateTime date) {
@@ -70,6 +72,7 @@ class RecentSquareCards extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => onOpenNote(note),
+        onLongPress: onLongPressNote != null ? () => onLongPressNote!(note) : null,
         borderRadius: BorderRadius.circular(12.0),
         child: Container(
           width: 105.0,

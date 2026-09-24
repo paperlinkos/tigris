@@ -95,5 +95,61 @@ void main() {
       expect(find.text('Epictetus Enchiridion'), findsNWidgets(2)); // square card + notes list item
       expect(find.text('Some things are in our control...'), findsOneWidget);
     });
+
+    testWidgets('HomeScreen updates immediately when notes are created, edited, and deleted via reactive stream', (WidgetTester tester) async {
+      final storage = InMemoryStorage();
+      final noteRepo = LocalNoteRepository(storage: storage);
+      final reviewRepo = LocalReviewRepository(storage: storage);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: RepositoryScope(
+            noteRepository: noteRepo,
+            reviewRepository: reviewRepo,
+            child: const HomeScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially empty
+      expect(find.text('Your notes will appear here.'), findsOneWidget);
+
+      // 1. Create note in repository directly
+      final note = Note(
+        id: 'realtime_note_1',
+        title: 'Reactive Architecture',
+        content: 'Streams provide seamless real-time UI updates.',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await noteRepo.saveNote(note);
+      await tester.pumpAndSettle(); // Deliver stream event and rebuild
+
+      // Verify it immediately appears on HomeScreen without navigation
+      expect(find.text('Reactive Architecture'), findsWidgets);
+      expect(find.text('Your notes will appear here.'), findsNothing);
+
+      // 2. Edit note in repository
+      final edited = note.copyWith(
+        title: 'Reactive Architecture v2',
+        updatedAt: DateTime.now(),
+      );
+      await noteRepo.saveNote(edited);
+      await tester.pumpAndSettle(); // Deliver stream event and rebuild
+
+      // Verify title immediately updates
+      expect(find.text('Reactive Architecture v2'), findsWidgets);
+      expect(find.text('Reactive Architecture'), findsNothing);
+
+      // 3. Delete note in repository
+      await noteRepo.deleteNote(note.id);
+      await tester.pumpAndSettle(); // Deliver stream event and rebuild
+
+      // Verify note is gone and empty state reappears
+      expect(find.text('Reactive Architecture v2'), findsNothing);
+      expect(find.text('Your notes will appear here.'), findsOneWidget);
+    });
   });
 }

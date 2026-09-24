@@ -1,1 +1,56 @@
-{"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"tigris-notes-app","appId":"1:544154185532:android:44857d3a4ff4723c6bb839","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"tigris-notes-app","appId":"1:544154185532:ios:332c936c7241167a6bb839","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"tigris-notes-app","appId":"1:544154185532:ios:332c936c7241167a6bb839","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"tigris-notes-app","configurations":{"android":"1:544154185532:android:44857d3a4ff4723c6bb839","ios":"1:544154185532:ios:332c936c7241167a6bb839","macos":"1:544154185532:ios:332c936c7241167a6bb839","web":"1:544154185532:web:09a1d95b831dc7916bb839"}}}}}}
+{
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "tigris-notes-app",
+          "appId": "1:544154185532:android:44857d3a4ff4723c6bb839",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "tigris-notes-app",
+          "appId": "1:544154185532:ios:332c936c7241167a6bb839",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "tigris-notes-app",
+          "appId": "1:544154185532:ios:332c936c7241167a6bb839",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "tigris-notes-app",
+          "configurations": {
+            "android": "1:544154185532:android:44857d3a4ff4723c6bb839",
+            "ios": "1:544154185532:ios:332c936c7241167a6bb839",
+            "macos": "1:544154185532:ios:332c936c7241167a6bb839",
+            "web": "1:544154185532:web:09a1d95b831dc7916bb839"
+          }
+        }
+      }
+    }
+  }
+}

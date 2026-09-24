@@ -117,18 +117,17 @@ void main() {
 
       // 6. Edit title and add child page from inside editor (full-screen page)
       await tester.enterText(find.byType(TextField).at(0), 'Published Mastery');
-      await tester.tap(find.text('Add page'));
+      await tester.tap(find.text('+'));
       await tester.pumpAndSettle();
-
-      expect(find.byType(NoteDetailScreen), findsOneWidget);
-      await tester.enterText(find.byType(TextField).at(0), 'Sub-discipline 1');
+      await tester.tap(find.text('Page'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Create New Page Note'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'Sub-discipline 1');
+      await tester.tap(find.text('Create'));
       await tester.pumpAndSettle(const Duration(milliseconds: 700));
 
-      // Return from subpage
-      await tester.tap(find.byType(IconButton).first);
-      await tester.pumpAndSettle();
-
-      // Verify subpage appears beneath content
+      // Verify subpage appears inline
       expect(find.text('Sub-discipline 1'), findsOneWidget);
 
       // Open subpage
@@ -136,6 +135,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify subpage editor
+      expect(find.byType(NoteDetailScreen), findsOneWidget);
       expect(find.text('Sub-discipline 1'), findsOneWidget);
 
       // Return from subpage
@@ -186,6 +186,62 @@ void main() {
 
       final saved = await noteRepo.getNote('empty_title_note');
       expect(saved!.title, equals('Untitled'));
+    });
+
+    testWidgets('Tapping Bold in NoteDetailScreen applies WYSIWYG formatting without ** characters', (WidgetTester tester) async {
+      final storage = InMemoryStorage();
+      final noteRepo = LocalNoteRepository(storage: storage);
+      final reviewRepo = LocalReviewRepository(storage: storage);
+
+      final note = Note(
+        id: 'bold_wysiwyg_note',
+        title: 'WYSIWYG Note',
+        content: 'Clean formatting test',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await noteRepo.saveNote(note);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: RepositoryScope(
+            noteRepository: noteRepo,
+            reviewRepository: reviewRepo,
+            child: NoteDetailScreen(
+              noteId: 'bold_wysiwyg_note',
+              initialNote: note,
+              noteRepository: noteRepo,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Focus the content TextField to show toolbar
+      await tester.tap(find.byType(TextField).at(1));
+      await tester.pumpAndSettle();
+
+      // Verify the B toolbar button exists
+      final boldBtn = find.text('B');
+      expect(boldBtn, findsOneWidget);
+
+      // Select text programmatically or tap B
+      await tester.tap(boldBtn);
+      await tester.pumpAndSettle();
+
+      // Verify that NO '**' appears in the TextField text content
+      final contentField = tester.widget<TextField>(find.byType(TextField).at(1));
+      expect(contentField.controller?.text.contains('**'), isFalse);
+
+      // Trigger autosave
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+
+      // Check persisted note: content should be clean (no '**') and formatting is saved
+      final savedNote = await noteRepo.getNote('bold_wysiwyg_note');
+      expect(savedNote, isNotNull);
+      expect(savedNote!.content.contains('**'), isFalse);
     });
   });
 }

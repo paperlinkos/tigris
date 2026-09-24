@@ -163,16 +163,26 @@ void main() {
       await tester.enterText(find.byType(TextField).at(1), 'Primary company agenda');
       await tester.pumpAndSettle(const Duration(milliseconds: 700));
 
-      // 11. Create child note using subtle "+ Add page" action
-      expect(find.text('Add page'), findsOneWidget);
-      await tester.tap(find.text('Add page'));
+      // 11. Create child note using + toolbar action
+      await tester.tap(find.text('+'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Page'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Create New Page Note'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'Q1 Deliverables');
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle(const Duration(milliseconds: 700));
+
+      expect(find.text('Q1 Deliverables'), findsOneWidget);
+
+      await tester.tap(find.text('Q1 Deliverables'));
       await tester.pumpAndSettle();
 
       // Verify child opened as a full-screen note page (no bottom sheet)
       expect(find.byType(NoteDetailScreen), findsOneWidget);
       expect(find.text('Venture 2026'), findsOneWidget); // In breadcrumbs
 
-      await tester.enterText(find.byType(TextField).at(0), 'Q1 Deliverables');
       await tester.enterText(find.byType(TextField).at(1), 'Key milestone deadlines');
       await tester.pumpAndSettle(const Duration(milliseconds: 700));
 
@@ -180,7 +190,7 @@ void main() {
       await tester.tap(find.byType(IconButton).first);
       await tester.pumpAndSettle();
 
-      // Verify child appears in parent's child notes
+      // Verify child appears in parent note
       expect(find.text('Q1 Deliverables'), findsOneWidget);
 
       // Navigate back to NotesScreen

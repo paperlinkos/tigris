@@ -6,6 +6,7 @@ import '../controllers/theme_controller.dart';
 import '../repositories/offline_first_note_repository.dart';
 import '../services/auth_service.dart';
 import '../widgets/calm_scaffold.dart';
+import 'glossary_screen.dart';
 import 'login_screen.dart';
 import 'notion_import_screen.dart';
 
@@ -250,6 +251,32 @@ class SettingsScreen extends StatelessWidget {
                   const SnackBar(content: Text('Notes saved locally.')),
                 );
               }
+            },
+          ),
+          Divider(color: context.appBorderSubtle),
+          _buildSettingsItem(
+            context,
+            title: 'Gemini AI Backend',
+            subtitle: 'Securely connected via Firebase Cloud Functions',
+            icon: Icons.auto_awesome,
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('AI is securely connected via Firebase Cloud Functions.'),
+                ),
+              );
+            },
+          ),
+          Divider(color: context.appBorderSubtle),
+          _buildSettingsItem(
+            context,
+            title: 'AI Glossary & Acronym Memory',
+            subtitle: 'Manage ministry terms (HEZP, ROR, PC) & custom acronyms',
+            icon: Icons.menu_book_outlined,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GlossaryScreen()),
+              );
             },
           ),
           Divider(color: context.appBorderSubtle),

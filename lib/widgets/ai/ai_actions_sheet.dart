@@ -9,6 +9,7 @@ import '../../screens/flashcard_review_screen.dart';
 import '../../screens/quiz_screen.dart';
 import '../../screens/teach_me_screen.dart';
 import '../../services/ai_service.dart';
+import 'note_analysis_sheet.dart';
 
 enum AiActionType {
   summarize,
@@ -105,6 +106,10 @@ class _AiActionsSheetState extends State<AiActionsSheet> {
   }
 
   Future<void> _runAction(AiActionType action) async {
+    final scope = RepositoryScope.maybeOf(context);
+    final flashcardRepo = scope?.flashcardRepository;
+    final quizRepo = scope?.quizRepository;
+
     setState(() {
       _selectedAction = action;
       _isLoading = true;
@@ -123,21 +128,27 @@ class _AiActionsSheetState extends State<AiActionsSheet> {
     try {
       switch (action) {
         case AiActionType.summarize:
-          final res = await widget.aiService.summarizeNote(noteContent: content);
+          final res = await widget.aiService.summarizeNote(
+            noteTitle: widget.noteTitle,
+            noteContent: content,
+          );
           if (mounted) setState(() => _summaryResult = res);
           break;
         case AiActionType.explain:
-          final res = await widget.aiService.explainNote(noteContent: content);
+          final res = await widget.aiService.explainNote(
+            noteTitle: widget.noteTitle,
+            noteContent: content,
+          );
           if (mounted) setState(() => _explainResult = res);
           break;
         case AiActionType.flashcards:
-          final repo = RepositoryScope.maybeOf(context)?.flashcardRepository;
           final res = await widget.aiService.generateFlashcards(
             noteId: widget.noteId,
+            noteTitle: widget.noteTitle,
             noteContent: content,
           );
-          if (repo != null) {
-            await repo.saveFlashcards(res);
+          if (flashcardRepo != null) {
+            await flashcardRepo.saveFlashcards(res);
           }
           if (mounted) {
             setState(() {
@@ -148,13 +159,13 @@ class _AiActionsSheetState extends State<AiActionsSheet> {
           }
           break;
         case AiActionType.quiz:
-          final repo = RepositoryScope.maybeOf(context)?.quizRepository;
           final res = await widget.aiService.generateQuiz(
             noteId: widget.noteId,
+            noteTitle: widget.noteTitle,
             noteContent: content,
           );
-          if (repo != null) {
-            await repo.saveQuizQuestions(res);
+          if (quizRepo != null) {
+            await quizRepo.saveQuizQuestions(res);
           }
           if (mounted) {
             setState(() {
@@ -361,6 +372,22 @@ class _AiActionsSheetState extends State<AiActionsSheet> {
   Widget _buildMenu() {
     return Column(
       children: [
+        _buildMenuItem(
+          icon: Icons.auto_awesome,
+          title: 'UNDERSTAND NOTE',
+          description: 'Extract structure, topics, key points, and identify unknown terms via Gemini.',
+          onTap: () {
+            Navigator.of(context).pop();
+            NoteAnalysisSheet.show(
+              context,
+              noteId: widget.noteId,
+              noteTitle: widget.noteTitle,
+              noteContent: widget.noteContent,
+              aiService: widget.aiService,
+            );
+          },
+        ),
+        const Divider(color: AppColors.borderSubtle, height: 1.0),
         if (_existingFlashcards != null && _existingFlashcards!.isNotEmpty) ...[
           _buildMenuItem(
             icon: Icons.play_circle_outline_rounded,
@@ -640,6 +667,18 @@ class _AiActionsSheetState extends State<AiActionsSheet> {
             ],
           ),
         ),
+        const SizedBox(height: 8.0),
+        OutlinedButton.icon(
+          onPressed: () => _runAction(AiActionType.flashcards),
+          icon: const Icon(Icons.refresh_rounded, size: 16.0),
+          label: const Text('Regenerate with Gemini AI'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.textPrimary,
+            side: const BorderSide(color: AppColors.borderSubtle),
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+          ),
+        ),
         const SizedBox(height: 16.0),
         ..._flashcardsResult!.map(
           (card) => Container(
@@ -721,6 +760,18 @@ class _AiActionsSheetState extends State<AiActionsSheet> {
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 8.0),
+        OutlinedButton.icon(
+          onPressed: () => _runAction(AiActionType.quiz),
+          icon: const Icon(Icons.refresh_rounded, size: 16.0),
+          label: const Text('Regenerate with Gemini AI'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.textPrimary,
+            side: const BorderSide(color: AppColors.borderSubtle),
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
           ),
         ),
         const SizedBox(height: 16.0),
