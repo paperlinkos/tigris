@@ -37,20 +37,45 @@ class RichTextEditingController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
-    if (attributes.isEmpty || text.isEmpty) {
-      return TextSpan(style: style, text: text);
+    final baseStyle = style ?? const TextStyle();
+    final currentText = text;
+
+    if (attributes.isEmpty || currentText.isEmpty) {
+      return TextSpan(style: baseStyle, text: currentText);
     }
 
-    final spans = <TextSpan>[];
-    final baseStyle = style ?? const TextStyle();
+    final len = currentText.length;
+    final validAttrs = attributes.where((a) => a.start < len && a.end > 0 && a.start < a.end).toList();
+    if (validAttrs.isEmpty) {
+      return TextSpan(style: baseStyle, text: currentText);
+    }
 
-    for (int i = 0; i < text.length; i++) {
-      final char = text[i];
+    final boundaries = <int>{0, len};
+    for (final attr in validAttrs) {
+      final s = attr.start.clamp(0, len);
+      final e = attr.end.clamp(0, len);
+      if (s < e) {
+        boundaries.add(s);
+        boundaries.add(e);
+      }
+    }
+
+    final sortedPoints = boundaries.toList()..sort();
+    final spans = <TextSpan>[];
+
+    for (int i = 0; i < sortedPoints.length - 1; i++) {
+      final segStart = sortedPoints[i];
+      final segEnd = sortedPoints[i + 1];
+      if (segEnd <= segStart) continue;
+
+      final segText = currentText.substring(segStart, segEnd);
       bool isBold = false;
       bool isItalic = false;
 
-      for (final attr in attributes) {
-        if (i >= attr.start && i < attr.end) {
+      for (final attr in validAttrs) {
+        final s = attr.start.clamp(0, len);
+        final e = attr.end.clamp(0, len);
+        if (s <= segStart && e >= segEnd) {
           if (attr.type == 'bold') isBold = true;
           if (attr.type == 'italic') isItalic = true;
         }
@@ -60,12 +85,13 @@ class RichTextEditingController extends TextEditingController {
       if (isBold) charStyle = charStyle.copyWith(fontWeight: FontWeight.bold);
       if (isItalic) charStyle = charStyle.copyWith(fontStyle: FontStyle.italic);
 
-      spans.add(TextSpan(text: char, style: charStyle));
+      spans.add(TextSpan(text: segText, style: charStyle));
     }
 
-    return TextSpan(children: spans);
+    return TextSpan(style: baseStyle, children: spans);
   }
 }
+
 
 class BlockNoteEditor extends StatefulWidget {
   final List<NoteBlock> blocks;

@@ -64,15 +64,20 @@ class OfflineFirstNoteRepository implements NoteRepository {
 
   @override
   Future<void> saveNote(Note note) async {
+    final noteWithRetention = note.offlineUntil == null
+        ? note.copyWith(offlineUntil: DateTime.now().add(const Duration(days: 5)))
+        : note;
+
     // 1. ALWAYS save locally first (0ms latency, works 100% offline)
-    await localRepo.saveNote(note);
+    await localRepo.saveNote(noteWithRetention);
     syncService?.setSavedLocally();
 
     // 2. Background sync to Firestore if cloud repo is available
     if (firestoreRepo != null) {
-      unawaited(_syncNoteToCloud(note));
+      unawaited(_syncNoteToCloud(noteWithRetention));
     }
   }
+
 
   @override
   Future<void> deleteNote(String id) async {

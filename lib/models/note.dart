@@ -14,6 +14,8 @@ class Note {
   final DateTime updatedAt;
   final bool isPinned;
   final List<String> tags;
+  final bool isKeepOffline;
+  final DateTime? offlineUntil;
 
   const Note({
     required this.id,
@@ -28,7 +30,12 @@ class Note {
     required this.updatedAt,
     this.isPinned = false,
     this.tags = const [],
+    this.isKeepOffline = true,
+    this.offlineUntil,
   });
+
+  bool get isOfflineAvailable =>
+      isKeepOffline || (offlineUntil != null && offlineUntil!.isAfter(DateTime.now()));
 
   bool get isRoot => parentId == null;
   bool get hasChildren => childrenIds.isNotEmpty;
@@ -108,6 +115,8 @@ class Note {
     DateTime? updatedAt,
     bool? isPinned,
     List<String>? tags,
+    bool? isKeepOffline,
+    DateTime? offlineUntil,
   }) {
     return Note(
       id: id ?? this.id,
@@ -122,6 +131,8 @@ class Note {
       updatedAt: updatedAt ?? this.updatedAt,
       isPinned: isPinned ?? this.isPinned,
       tags: tags ?? this.tags,
+      isKeepOffline: isKeepOffline ?? this.isKeepOffline,
+      offlineUntil: offlineUntil ?? this.offlineUntil,
     );
   }
 
@@ -139,6 +150,8 @@ class Note {
       'updatedAt': updatedAt.toIso8601String(),
       'isPinned': isPinned,
       'tags': tags,
+      'isKeepOffline': isKeepOffline,
+      if (offlineUntil != null) 'offlineUntil': offlineUntil!.toIso8601String(),
     };
   }
 
@@ -156,6 +169,11 @@ class Note {
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       isPinned: json['isPinned'] as bool? ?? false,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
+      isKeepOffline: json['isKeepOffline'] as bool? ?? true,
+      offlineUntil: json['offlineUntil'] != null
+          ? DateTime.parse(json['offlineUntil'] as String)
+          : null,
     );
   }
+
 }
