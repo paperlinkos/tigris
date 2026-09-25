@@ -1,6 +1,6 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/di/repository_scope.dart';
@@ -133,8 +133,16 @@ class BlockNoteEditorState extends State<BlockNoteEditor> {
   @override
   void didUpdateWidget(BlockNoteEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.blocks.length != _blocks.length) {
+    final externalIds = widget.blocks.map((b) => b.id).toList();
+    final internalIds = _blocks.map((b) => b.id).toList();
+    if (!listEquals(externalIds, internalIds)) {
       _initBlocks(widget.blocks);
+    }
+  }
+
+  void _setActiveIndex(int index) {
+    if (_activeBlockIndex != index && index >= 0 && index < _blocks.length) {
+      setState(() => _activeBlockIndex = index);
     }
   }
 
@@ -158,13 +166,6 @@ class BlockNoteEditorState extends State<BlockNoteEditor> {
         attributes: block.inlineAttributes,
       );
       final focusNode = FocusNode();
-      final index = i;
-
-      focusNode.addListener(() {
-        if (focusNode.hasFocus) {
-          setState(() => _activeBlockIndex = index);
-        }
-      });
 
       _controllers.add(controller);
       _focusNodes.add(focusNode);
@@ -507,6 +508,40 @@ class BlockNoteEditorState extends State<BlockNoteEditor> {
     _notifyChanged();
   }
 
+  void insertBlockAfter(int index, String content) {
+    if (index < 0 || index >= _blocks.length) return;
+    final currentBlock = _blocks[index];
+
+    BlockType newType = BlockType.text;
+    if (currentBlock.type == BlockType.bullet) newType = BlockType.bullet;
+    else if (currentBlock.type == BlockType.number) newType = BlockType.number;
+
+    final newBlock = NoteBlock(
+      type: newType,
+      content: content,
+      indentLevel: currentBlock.indentLevel,
+    );
+    final insertIndex = index + 1;
+
+    final controller = RichTextEditingController(text: content);
+    final focusNode = FocusNode();
+
+    setState(() {
+      _blocks.insert(insertIndex, newBlock);
+      _controllers.insert(insertIndex, controller);
+      _focusNodes.insert(insertIndex, focusNode);
+      _activeBlockIndex = insertIndex;
+    });
+    _notifyChanged();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (insertIndex < _focusNodes.length) {
+        _focusNodes[insertIndex].requestFocus();
+        controller.selection = const TextSelection.collapsed(offset: 0);
+      }
+    });
+  }
+
   void _handleEnter(int index) {
     final currentBlock = _blocks[index];
     final controller = _controllers[index];
@@ -522,55 +557,51 @@ class BlockNoteEditorState extends State<BlockNoteEditor> {
       return;
     }
 
-    BlockType newType = BlockType.text;
-    if (currentBlock.type == BlockType.bullet) newType = BlockType.bullet;
-    else if (currentBlock.type == BlockType.number) newType = BlockType.number;
-
-    final newBlock = NoteBlock(type: newType, content: '', indentLevel: currentBlock.indentLevel);
-    final insertIndex = index + 1;
-
-    setState(() {
-      _blocks.insert(insertIndex, newBlock);
-      final newController = RichTextEditingController(text: '');
-      final newFocusNode = FocusNode();
-      newFocusNode.addListener(() {
-        if (newFocusNode.hasFocus) setState(() => _activeBlockIndex = insertIndex);
-      });
-      _controllers.insert(insertIndex, newController);
-      _focusNodes.insert(insertIndex, newFocusNode);
-      _activeBlockIndex = insertIndex;
-    });
-    _notifyChanged();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (insertIndex < _focusNodes.length) _focusNodes[insertIndex].requestFocus();
-    });
+    insertBlockAfter(index, '');
   }
 
   void _handleBackspace(int index) {
     final currentBlock = _blocks[index];
     final controller = _controllers[index];
 
-    if (controller.text.isEmpty) {
+    if (controller.selection.isCollapsed && controller.selection.start == 0) {
       if (currentBlock.indentLevel > 0) {
         decreaseIndent();
+        return;
       } else if (currentBlock.type != BlockType.text) {
         setState(() => _blocks[index] = currentBlock.copyWith(type: BlockType.text));
         _notifyChanged();
+        return;
       } else if (_blocks.length > 1 && index > 0) {
+        final prevIndex = index - 1;
+        final prevController = _controllers[prevIndex];
+        final prevText = prevController.text;
+        final currentText = controller.text;
+        final mergedText = prevText + currentText;
+
         setState(() {
           _blocks.removeAt(index);
           controller.dispose();
           _focusNodes[index].dispose();
           _controllers.removeAt(index);
           _focusNodes.removeAt(index);
-          final prevIndex = index - 1;
+
+          _blocks[prevIndex] = _blocks[prevIndex].copyWith(content: mergedText);
+          prevController.value = TextEditingValue(
+            text: mergedText,
+            selection: TextSelection.collapsed(offset: prevText.length),
+          );
+
           _activeBlockIndex = prevIndex;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (prevIndex < _focusNodes.length) _focusNodes[prevIndex].requestFocus();
-          });
         });
         _notifyChanged();
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (prevIndex < _focusNodes.length) {
+            _focusNodes[prevIndex].requestFocus();
+          }
+        });
+        return;
       }
     }
   }
@@ -869,6 +900,33 @@ class _BlockRowState extends State<_BlockRow> {
   BlockNoteEditorState get _editor => widget.editorState;
 
   @override
+  void initState() {
+    super.initState();
+    widget.focusNode.addListener(_handleFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(_BlockRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      oldWidget.focusNode.removeListener(_handleFocusChange);
+      widget.focusNode.addListener(_handleFocusChange);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_handleFocusChange);
+    super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (widget.focusNode.hasFocus) {
+      _editor._setActiveIndex(widget.index);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final block = widget.block;
     final index = widget.index;
@@ -1062,6 +1120,40 @@ class _BlockRowState extends State<_BlockRow> {
                   contentPadding: EdgeInsets.symmetric(vertical: 4.0),
                 ),
                 onChanged: (val) {
+                  if (val.contains('\n')) {
+                    final lines = val.split('\n');
+                    final firstLine = lines.first;
+
+                    var targetType = widget.block.type;
+                    var cleanedFirst = firstLine;
+                    if (targetType == BlockType.text) {
+                      if (firstLine.startsWith('• ') || firstLine.startsWith('- ') || firstLine.startsWith('* ')) {
+                        targetType = BlockType.bullet;
+                        cleanedFirst = cleanMarkerPrefix(firstLine);
+                      } else if (RegExp(r'^\d+\.\s+').hasMatch(firstLine)) {
+                        targetType = BlockType.number;
+                        cleanedFirst = cleanMarkerPrefix(firstLine);
+                      }
+                    }
+
+                    controller.value = TextEditingValue(
+                      text: cleanedFirst,
+                      selection: TextSelection.collapsed(offset: cleanedFirst.length),
+                    );
+                    _editor._blocks[index] = _editor._blocks[index].copyWith(
+                      type: targetType,
+                      content: cleanedFirst,
+                    );
+                    _editor._notifyChanged();
+
+                    int currentInsertIdx = index;
+                    for (int i = 1; i < lines.length; i++) {
+                      _editor.insertBlockAfter(currentInsertIdx, lines[i]);
+                      currentInsertIdx++;
+                    }
+                    return;
+                  }
+
                   var updatedText = val;
                   BlockType targetType = widget.block.type;
 

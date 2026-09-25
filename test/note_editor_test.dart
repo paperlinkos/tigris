@@ -113,7 +113,8 @@ void main() {
       // 5. Re-open note and verify content loaded
       await tester.tap(find.text('Draft A'));
       await tester.pumpAndSettle();
-      expect(find.text('Paragraph 1\nParagraph 2 with new reflections.'), findsOneWidget);
+      expect(find.text('Paragraph 1'), findsOneWidget);
+      expect(find.text('Paragraph 2 with new reflections.'), findsOneWidget);
 
       // 6. Edit title and add child page from inside editor (full-screen page)
       await tester.enterText(find.byType(TextField).at(0), 'Published Mastery');
