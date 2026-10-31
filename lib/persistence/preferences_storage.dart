@@ -2,10 +2,22 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'storage_interface.dart';
 
+/// Thrown when saved data can't be read. Callers must not treat this as "no
+/// data", because the next save would replace what's there.
+class StorageCorruptedException implements Exception {
+  final String collection;
+  final Object cause;
+
+  const StorageCorruptedException(this.collection, this.cause);
+
+  @override
+  String toString() => 'Saved data in "$collection" could not be read: $cause';
+}
+
 /// Persistent implementation of [StorageInterface] using [SharedPreferences].
 /// Stores each collection as a serialized JSON map of IDs to document objects.
 class PreferencesStorage implements StorageInterface {
-  static const String _keyPrefix = 'tigris_storage_';
+  static const String keyPrefix = 'tigris_storage_';
 
   final SharedPreferences? _prefsInstance;
 
@@ -15,7 +27,7 @@ class PreferencesStorage implements StorageInterface {
     return _prefsInstance ?? await SharedPreferences.getInstance();
   }
 
-  String _collectionKey(String collection) => '$_keyPrefix$collection';
+  String _collectionKey(String collection) => '$keyPrefix$collection';
 
   Future<Map<String, Map<String, dynamic>>> _loadCollection(String collection) async {
     final prefs = await _getPrefs();
@@ -26,8 +38,8 @@ class PreferencesStorage implements StorageInterface {
       return decoded.map(
         (key, value) => MapEntry(key, Map<String, dynamic>.from(value as Map)),
       );
-    } catch (_) {
-      return {};
+    } catch (e) {
+      throw StorageCorruptedException(collection, e);
     }
   }
 

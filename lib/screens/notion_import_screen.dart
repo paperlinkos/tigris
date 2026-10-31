@@ -3,7 +3,8 @@ import '../app/di/repository_scope.dart';
 import '../app/theme/app_typography.dart';
 import '../app/theme/context_theme_extensions.dart';
 import '../models/note.dart';
-import '../persistence/preferences_storage.dart';
+import '../persistence/app_storage.dart';
+import '../persistence/storage_interface.dart';
 import '../services/notion_import_service.dart';
 import '../widgets/calm_scaffold.dart';
 
@@ -24,7 +25,7 @@ class NotionImportScreen extends StatefulWidget {
 class _NotionImportScreenState extends State<NotionImportScreen> {
   late final NotionImportService _notionService;
   final TextEditingController _tokenController = TextEditingController();
-  final PreferencesStorage _storage = PreferencesStorage();
+  final StorageInterface _storage = AppStorage.instance;
 
   NotionImportStep _step = NotionImportStep.tokenInput;
   bool _isLoading = false;

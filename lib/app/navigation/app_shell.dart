@@ -3,7 +3,7 @@ import '../theme/app_colors.dart';
 import '../di/repository_scope.dart';
 import '../../models/note.dart';
 import '../../persistence/storage_interface.dart';
-import '../../persistence/preferences_storage.dart';
+import '../../persistence/app_storage.dart';
 import '../../repositories/flashcard_repository.dart';
 import '../../repositories/local_flashcard_repository.dart';
 import '../../repositories/local_note_repository.dart';
@@ -46,7 +46,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    final storage = widget.storage ?? PreferencesStorage();
+    final storage = widget.storage ?? AppStorage.instance;
     _noteRepository = widget.noteRepository ?? LocalNoteRepository(storage: storage);
     _reviewRepository = widget.reviewRepository ?? LocalReviewRepository(storage: storage);
     _flashcardRepository = widget.flashcardRepository ?? LocalFlashcardRepository(storage: storage);

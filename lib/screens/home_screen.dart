@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/di/repository_scope.dart';
 import '../app/theme/context_theme_extensions.dart';
 import '../models/note.dart';
-import '../persistence/preferences_storage.dart';
+import '../persistence/app_storage.dart';
 import '../controllers/theme_controller.dart';
 import '../repositories/offline_first_note_repository.dart';
 import '../repositories/task_repository.dart';
@@ -44,7 +44,7 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _taskRepository = LocalTaskRepository(storage: PreferencesStorage());
+    _taskRepository = LocalTaskRepository(storage: AppStorage.instance);
   }
 
   @override

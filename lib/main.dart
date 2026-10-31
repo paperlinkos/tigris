@@ -7,7 +7,7 @@ import 'app/di/repository_scope.dart';
 import 'app/theme/app_theme.dart';
 import 'app/navigation/app_shell.dart';
 import 'controllers/theme_controller.dart';
-import 'persistence/preferences_storage.dart';
+import 'persistence/app_storage.dart';
 import 'persistence/storage_interface.dart';
 import 'repositories/flashcard_repository.dart';
 import 'repositories/firestore_note_repository.dart';
@@ -68,7 +68,7 @@ class _PersonalLearningAppState extends State<PersonalLearningApp> {
   @override
   void initState() {
     super.initState();
-    final storage = widget.storage ?? PreferencesStorage();
+    final storage = widget.storage ?? AppStorage.instance;
     _syncService = CloudSyncService();
     _themeController = widget.themeController ?? ThemeController(storage: storage);
 
