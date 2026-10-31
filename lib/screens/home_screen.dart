@@ -4,15 +4,12 @@ import '../app/di/repository_scope.dart';
 import '../app/theme/context_theme_extensions.dart';
 import '../models/note.dart';
 import '../persistence/preferences_storage.dart';
+import '../controllers/theme_controller.dart';
+import '../repositories/offline_first_note_repository.dart';
 import '../repositories/task_repository.dart';
 import '../views/tasks_view.dart';
-import '../widgets/home/app_sidebar_drawer.dart';
-import '../widgets/home/bottom_control_bar.dart';
-import '../widgets/home/home_header.dart';
-import '../widgets/home/recent_notes_section.dart';
-import '../widgets/home/recent_square_cards.dart';
-
 import '../app/theme/app_typography.dart';
+import '../widgets/home/notes_tree_list.dart';
 import '../widgets/notes/note_action_menu.dart';
 import '../widgets/notes/note_peek_preview_dialog.dart';
 import 'note_detail_screen.dart';
@@ -36,10 +33,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class HomeScreenState extends State<HomeScreen> {
-  HomeViewMode _viewMode = HomeViewMode.notes;
-  List<Note> _recentNotes = [];
-  List<Note> _streamNotes = [];
-  List<Note> _standaloneNotes = [];
+  List<Note> _allNotes = [];
   bool _isLoading = true;
 
   final TextEditingController _searchController = TextEditingController();
@@ -82,15 +76,8 @@ class HomeScreenState extends State<HomeScreen> {
     _notesSubscription?.cancel();
     _notesSubscription = repoScope.noteRepository.watchAllNotes().listen((allNotes) {
       if (!mounted) return;
-      final recents = List<Note>.from(allNotes)..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      final rootNotes = allNotes.where((n) => n.parentId == null || n.isRoot).toList();
-      final streams = rootNotes.where((n) => n.childrenIds.isNotEmpty).toList();
-      final standalone = rootNotes.where((n) => n.childrenIds.isEmpty).toList();
-
       setState(() {
-        _recentNotes = recents.take(10).toList();
-        _streamNotes = streams;
-        _standaloneNotes = standalone;
+        _allNotes = allNotes;
         _isLoading = false;
       });
     }, onError: (_) {
@@ -113,16 +100,11 @@ class HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final recents = await repoScope.noteRepository.getRecentNotes(limit: 10);
-    final roots = await repoScope.noteRepository.getRootNotes();
-    final streams = roots.where((n) => n.childrenIds.isNotEmpty).toList();
-    final standalone = roots.where((n) => n.childrenIds.isEmpty).toList();
+    final allNotes = await repoScope.noteRepository.getAllNotes();
 
     if (mounted) {
       setState(() {
-        _recentNotes = recents;
-        _streamNotes = streams;
-        _standaloneNotes = standalone;
+        _allNotes = allNotes;
         _isLoading = false;
       });
     }
@@ -213,6 +195,31 @@ class HomeScreenState extends State<HomeScreen> {
     );
     if (mounted) {
       await _loadData();
+    }
+  }
+
+  Future<void> _handleOpenTasks() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: context.appBg,
+          appBar: AppBar(
+            backgroundColor: context.appBg,
+            title: Text('Tasks', style: AppTypography.uiHeadline(color: context.appTextPrimary)),
+          ),
+          body: TasksView(taskRepository: _taskRepository, searchQuery: ''),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSync() async {
+    final repo = RepositoryScope.maybeOf(context)?.noteRepository;
+    if (repo is OfflineFirstNoteRepository) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Syncing notes...')),
+      );
+      await repo.syncWithCloud();
     }
   }
 
@@ -340,80 +347,154 @@ class HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final filteredNotes = _searchQuery.isEmpty
-        ? _recentNotes
-        : _recentNotes.where((n) {
-            final q = _searchQuery.toLowerCase();
-            return n.title.toLowerCase().contains(q) ||
-                n.content.toLowerCase().contains(q);
-          }).toList();
-
     return Scaffold(
       backgroundColor: context.appBg,
-      drawer: AppSidebarDrawer(
-        streams: _streamNotes,
-        notes: _standaloneNotes,
-        onOpenNote: _handleOpenNote,
-        onOpenSettings: _handleOpenSettings,
-        onOpenReview: _handleOpenReview,
-      ),
-      bottomNavigationBar: BottomControlBar(
-        searchController: _searchController,
-        onSearchChanged: (val) {
-          setState(() {
-            _searchQuery = val;
-          });
-        },
-        onCreateNote: _handleCreateNote,
+      floatingActionButton: FloatingActionButton(
+        key: const Key('new_note_button'),
+        onPressed: _handleCreateNote,
+        tooltip: 'New note',
+        elevation: 1.0,
+        backgroundColor: context.appTextPrimary,
+        foregroundColor: context.appBg,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.edit_outlined, size: 22.0),
       ),
       body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-              child: HomeHeader(
-                viewMode: _viewMode,
-                onViewModeChanged: (mode) {
-                  setState(() {
-                    _viewMode = mode;
-                  });
-                },
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 20.0, right: 8.0, top: 12.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Notes',
+                          style: AppTypography.display(color: context.appTextPrimary),
+                        ),
+                      ),
+                      _buildMoreMenu(),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 8.0),
+                  child: _buildSearchField(),
+                ),
+                Expanded(
+                  child: NotesTreeList(
+                    notes: _allNotes,
+                    searchQuery: _searchQuery,
+                    onCreateNote: _handleCreateNote,
+                    onOpenNote: _handleOpenNote,
+                    onLongPressNote: _showNoteActionMenu,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Container(
+      height: 38.0,
+      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      decoration: BoxDecoration(
+        color: context.appSurfaceSubtle,
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.search_rounded, size: 18.0, color: context.appTextSecondary),
+          const SizedBox(width: 8.0),
+          Expanded(
+            child: TextField(
+              key: const Key('notes_search_field'),
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              style: AppTypography.uiLabel(
+                fontSize: 15.0,
+                fontWeight: FontWeight.w400,
+                color: context.appTextPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search',
+                hintStyle: AppTypography.uiLabel(
+                  fontSize: 15.0,
+                  fontWeight: FontWeight.w400,
+                  color: context.appTextSecondary,
+                ),
+                border: InputBorder.none,
+                isCollapsed: true,
               ),
             ),
-
-            Expanded(
-              child: _viewMode == HomeViewMode.tasks
-                  ? TasksView(
-                      taskRepository: _taskRepository,
-                      searchQuery: _searchQuery,
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_searchQuery.isEmpty && _recentNotes.isNotEmpty) ...[
-                            RecentSquareCards(
-                              recentNotes: _recentNotes,
-                              onOpenNote: _handleOpenNote,
-                              onLongPressNote: _showNoteActionMenu,
-                            ),
-                            const SizedBox(height: 28.0),
-                          ],
-
-                          RecentNotesSection(
-                            notes: filteredNotes,
-                            onCreateNote: _handleCreateNote,
-                            onOpenNote: _handleOpenNote,
-                            onLongPressNote: _showNoteActionMenu,
-                          ),
-                          const SizedBox(height: 36.0),
-                        ],
-                      ),
-                    ),
+          ),
+          if (_searchQuery.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                _searchController.clear();
+                setState(() => _searchQuery = '');
+              },
+              child: Icon(Icons.cancel_rounded, size: 16.0, color: context.appTextTertiary),
             ),
-          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoreMenu() {
+    final themeController = ThemeControllerScope.maybeOf(context);
+    return PopupMenuButton<String>(
+      key: const Key('home_more_menu'),
+      tooltip: 'More',
+      icon: Icon(Icons.more_horiz_rounded, color: context.appTextPrimary),
+      color: context.appSurface,
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10.0),
+        side: BorderSide(color: context.appBorder),
+      ),
+      onSelected: (value) {
+        switch (value) {
+          case 'review':
+            _handleOpenReview();
+          case 'tasks':
+            _handleOpenTasks();
+          case 'sync':
+            _handleSync();
+          case 'theme':
+            themeController?.toggleDarkMode();
+          case 'settings':
+            _handleOpenSettings();
+        }
+      },
+      itemBuilder: (context) => [
+        _menuItem('review', 'Review'),
+        _menuItem('tasks', 'Tasks'),
+        _menuItem('sync', 'Sync notes'),
+        if (themeController != null)
+          _menuItem('theme', context.isDarkMode ? 'Light mode' : 'Dark mode'),
+        _menuItem('settings', 'Settings'),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _menuItem(String value, String label) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 42.0,
+      child: Text(
+        label,
+        style: AppTypography.uiLabel(
+          fontSize: 14.0,
+          fontWeight: FontWeight.w400,
+          color: context.appTextPrimary,
         ),
       ),
     );

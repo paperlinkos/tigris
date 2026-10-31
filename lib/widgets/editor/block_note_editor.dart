@@ -1,3 +1,5 @@
+import '../../app/theme/app_typography.dart';
+import '../../app/theme/context_theme_extensions.dart';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
@@ -506,6 +508,26 @@ class BlockNoteEditorState extends State<BlockNoteEditor> {
       WidgetsBinding.instance.addPostFrameCallback((_) => fNode.requestFocus());
     });
     _notifyChanged();
+  }
+
+  /// Puts the cursor in the first block, or on [atEnd] in the last one, adding
+  /// a text block if the last block can't hold a cursor.
+  void focusBody({bool atEnd = false}) {
+    if (_blocks.isEmpty) return;
+    final index = atEnd ? _blocks.length - 1 : 0;
+    final type = _blocks[index].type;
+    if (type == BlockType.page || type == BlockType.divider) {
+      if (atEnd) {
+        insertBlockAfter(index, '');
+      }
+      return;
+    }
+    final controller = _controllers[index];
+    _setActiveIndex(index);
+    _focusNodes[index].requestFocus();
+    controller.selection = TextSelection.collapsed(
+      offset: atEnd ? controller.text.length : 0,
+    );
   }
 
   void insertBlockAfter(int index, String content) {
@@ -1068,10 +1090,10 @@ class _BlockRowState extends State<_BlockRow> {
     }
 
     Widget prefixWidget = const SizedBox.shrink();
-    TextStyle textStyle = const TextStyle(fontSize: 16, height: 1.4);
+    TextStyle textStyle = AppTypography.body(color: context.appTextPrimary);
 
     if (block.type == BlockType.heading) {
-      textStyle = const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.3);
+      textStyle = AppTypography.title(fontSize: 22.0, color: context.appTextPrimary);
     } else if (block.type == BlockType.bullet) {
       prefixWidget = const Padding(
         padding: EdgeInsets.only(right: 8.0, top: 2.0),
@@ -1112,12 +1134,14 @@ class _BlockRowState extends State<_BlockRow> {
                 maxLines: null,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
+                  hintText: _editor._blocks.length == 1 ? 'Start writing...' : null,
+                  hintStyle: textStyle.copyWith(color: context.appTextTertiary),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 4.0),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 4.0),
                 ),
                 onChanged: (val) {
                   if (val.contains('\n')) {

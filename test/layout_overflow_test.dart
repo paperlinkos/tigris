@@ -28,15 +28,14 @@ void main() {
         debugPrint(exception.toStringDeep());
       }
       expect(exception, isNull);
-      expect(find.text('NOTES'), findsWidgets);
+      expect(find.text('Notes'), findsWidgets);
 
-      // Open sidebar drawer and verify no overflow
-      await tester.tap(find.byKey(const Key('sidebar_toggle_button')));
+      // Open the more menu and verify no overflow
+      await tester.tap(find.byKey(const Key('home_more_menu')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('STREAMS'), findsOneWidget);
 
-      // Verify Settings in sidebar drawer
+      // Verify Settings in the more menu
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

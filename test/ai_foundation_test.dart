@@ -145,7 +145,6 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('UNDERSTAND NOTE'), findsOneWidget);
       expect(find.text('Sunday Faith Convention'), findsOneWidget);
       expect(find.text('Sunday Morning Service'), findsOneWidget);
       expect(find.text('Pastor Felix'), findsOneWidget);
@@ -224,12 +223,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify the UNDERSTAND NOTE button is present
-      final understandBtn = find.byKey(const Key('understand_note_button'));
-      expect(understandBtn, findsOneWidget);
-
-      // Tap UNDERSTAND NOTE
-      await tester.tap(understandBtn);
+      // Open the note menu and tap Understand note
+      await tester.tap(find.byKey(const Key('note_more_menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Understand note'));
       await tester.pumpAndSettle();
 
       // Verify the sheet opened and rendered analysis

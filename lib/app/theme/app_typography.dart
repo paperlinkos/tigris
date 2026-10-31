@@ -6,9 +6,9 @@ class AppTypography {
   static TextStyle display({
     Color color = AppColors.textPrimary,
     double fontSize = 32.0,
-    FontWeight fontWeight = FontWeight.w400,
+    FontWeight fontWeight = FontWeight.w700,
   }) {
-    return GoogleFonts.newsreader(
+    return GoogleFonts.inter(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
@@ -20,9 +20,9 @@ class AppTypography {
   static TextStyle title({
     Color color = AppColors.textPrimary,
     double fontSize = 22.0,
-    FontWeight fontWeight = FontWeight.w500,
+    FontWeight fontWeight = FontWeight.w600,
   }) {
-    return GoogleFonts.newsreader(
+    return GoogleFonts.inter(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
@@ -47,15 +47,15 @@ class AppTypography {
 
   static TextStyle body({
     Color color = AppColors.textPrimary,
-    double fontSize = 17.0,
+    double fontSize = 16.0,
     FontWeight fontWeight = FontWeight.w400,
   }) {
-    return GoogleFonts.newsreader(
+    return GoogleFonts.inter(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
-      height: 1.7,
-      letterSpacing: 0.1,
+      height: 1.6,
+      letterSpacing: -0.1,
     );
   }
 

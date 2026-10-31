@@ -149,7 +149,7 @@ class _PersonalLearningAppState extends State<PersonalLearningApp> {
           listenable: _themeController,
           builder: (context, child) {
             return MaterialApp(
-              title: 'Active Learning',
+              title: 'Tigris',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,

@@ -188,9 +188,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify AppShell loaded with FAB and NOTES section
-      expect(find.byKey(const Key('home_fab_menu')), findsOneWidget);
-      expect(find.text('NOTES'), findsOneWidget);
+      // Verify AppShell loaded with compose button and Notes title
+      expect(find.byKey(const Key('new_note_button')), findsOneWidget);
+      expect(find.text('Notes'), findsOneWidget);
 
       // Create a note and a due review
       final note = Note(

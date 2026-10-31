@@ -118,6 +118,8 @@ void main() {
 
       // 6. Edit title and add child page from inside editor (full-screen page)
       await tester.enterText(find.byType(TextField).at(0), 'Published Mastery');
+      await tester.tap(find.text('Paragraph 1'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('+'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Page'));

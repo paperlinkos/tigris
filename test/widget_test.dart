@@ -14,28 +14,26 @@ void main() {
   });
 
   group('App Shell Smoke & Navigation Tests', () {
-    testWidgets('App shell loads Home with sidebar navigation', (WidgetTester tester) async {
+    testWidgets('App shell loads Home with notes list controls', (WidgetTester tester) async {
       await tester.pumpWidget(const PersonalLearningApp());
       await tester.pumpAndSettle();
 
       expect(find.text('Notes'), findsWidgets);
-      expect(find.byKey(const Key('home_fab_menu')), findsOneWidget);
-      expect(find.byKey(const Key('sidebar_toggle_button')), findsOneWidget);
-      expect(find.text('NOTES'), findsOneWidget);
+      expect(find.byKey(const Key('new_note_button')), findsOneWidget);
+      expect(find.byKey(const Key('home_more_menu')), findsOneWidget);
     });
 
-    testWidgets('Can open sidebar drawer and navigate to Settings', (WidgetTester tester) async {
+    testWidgets('Can open more menu and navigate to Settings', (WidgetTester tester) async {
       await tester.pumpWidget(const PersonalLearningApp());
       await tester.pumpAndSettle();
 
-      // Tap sidebar toggle button to open drawer
-      await tester.tap(find.byKey(const Key('sidebar_toggle_button')));
+      // Open the more menu
+      await tester.tap(find.byKey(const Key('home_more_menu')));
       await tester.pumpAndSettle();
 
-      expect(find.text('STREAMS'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
 
-      // Tap on Settings in sidebar drawer
+      // Tap on Settings in the more menu
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
 

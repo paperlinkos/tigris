@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../app/di/repository_scope.dart';
-import '../app/theme/app_colors.dart';
 import '../app/theme/app_typography.dart';
 import '../app/theme/context_theme_extensions.dart';
 import '../models/note.dart';
@@ -47,8 +46,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   List<NoteBlock> _currentBlocks = [];
 
   Timer? _debounceTimer;
-  bool _isSaving = false;
   bool _hasUnsavedChanges = false;
+  bool _isWritingBody = false;
 
   NoteRepository? get _repo =>
       widget.noteRepository ?? RepositoryScope.maybeOf(context)?.noteRepository;
@@ -62,6 +61,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _titleController = TextEditingController(text: _note?.title ?? '');
     _titleController.addListener(_onFieldChanged);
     _titleFocusNode.addListener(_onFocusChanged);
+    FocusManager.instance.addListener(_onPrimaryFocusChanged);
 
     if (_note != null) {
       _currentBlocks = List.from(_note!.blocks);
@@ -72,8 +72,18 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (mounted) setState(() {});
   }
 
+  void _onPrimaryFocusChanged() {
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    final isWritingBody =
+        focusContext?.findAncestorWidgetOfExactType<BlockNoteEditor>() != null;
+    if (mounted && isWritingBody != _isWritingBody) {
+      setState(() => _isWritingBody = isWritingBody);
+    }
+  }
+
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_onPrimaryFocusChanged);
     _activeNoteIdsInStack.remove(widget.noteId);
     _debounceTimer?.cancel();
     _titleController.removeListener(_onFieldChanged);
@@ -123,16 +133,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       updatedAt: DateTime.now(),
     );
 
-    if (mounted) {
-      setState(() => _isSaving = true);
-    }
-
     await repo.saveNote(updated);
 
     if (mounted) {
       setState(() {
         _note = updated;
-        _isSaving = false;
         _hasUnsavedChanges = false;
       });
     }
@@ -282,6 +287,62 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     }
   }
 
+  Future<void> _addPageInside() async {
+    final repo = _repo;
+    if (_note == null || repo == null) return;
+
+    final nameController = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.appSurface,
+        title: Text(
+          'New page inside this note',
+          style: AppTypography.title(fontSize: 18.0, color: ctx.appTextPrimary),
+        ),
+        content: TextField(
+          key: const Key('new_page_name_field'),
+          controller: nameController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'Page name'),
+          onSubmitted: (value) => Navigator.of(ctx).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(nameController.text.trim()),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+    if (name == null || name.isEmpty || !mounted) return;
+
+    final now = DateTime.now();
+    final child = Note(
+      id: 'note_${now.millisecondsSinceEpoch}',
+      title: name,
+      content: '',
+      parentId: _note!.id,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await repo.saveNote(child);
+    if (!mounted) return;
+
+    final state = _editorKey.currentState;
+    if (state != null) {
+      dynamic dynamicState = state;
+      dynamicState.insertPageBlock(child.id);
+    }
+    await _openPageBlockNote(child.id);
+  }
+
   Future<void> _confirmDelete() async {
     if (_note == null) return;
     final totalChildren = _childNotes.length;
@@ -289,16 +350,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.appBg,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
-          side: const BorderSide(color: AppColors.borderSubtle),
+          side: BorderSide(color: context.appBorderSubtle),
         ),
         title: Text(
           'Delete Note',
           style: AppTypography.title(
             fontSize: 20.0,
-            color: AppColors.textPrimary,
+            color: context.appTextPrimary,
           ),
         ),
         content: Text(
@@ -307,7 +368,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               : 'Are you sure you want to delete this note?',
           style: AppTypography.body(
             fontSize: 14.5,
-            color: AppColors.textSecondary,
+            color: context.appTextSecondary,
           ),
         ),
         actionsPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -318,15 +379,15 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               'Cancel',
               style: AppTypography.uiLabel(
                 fontSize: 14.0,
-                color: AppColors.textSecondary,
+                color: context.appTextSecondary,
               ),
             ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.textPrimary,
-              foregroundColor: AppColors.background,
+              backgroundColor: context.appTextPrimary,
+              foregroundColor: context.appBg,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(6.0),
@@ -336,7 +397,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               'Delete',
               style: AppTypography.uiHeadline(
                 fontSize: 14.0,
-                color: AppColors.background,
+                color: context.appBg,
               ),
             ),
           ),
@@ -587,73 +648,77 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           ),
           centerTitle: false,
           actions: [
-            if (_isSaving)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 6.0),
-                  child: Text(
-                    'Saving...',
-                    style: AppTypography.uiLabel(
-                      fontSize: 12.0,
-                      color: context.appTextTertiary,
-                    ),
-                  ),
-                ),
-              ),
-            TextButton(
-              key: const Key('understand_note_button'),
-              onPressed: _openUnderstandNote,
-              style: TextButton.styleFrom(
-                foregroundColor: context.appTextPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                minimumSize: const Size(40.0, 36.0),
-              ),
-              child: Text(
-                'UNDERSTAND NOTE',
-                style: AppTypography.uiHeadline(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: context.appTextPrimary,
-                ),
-              ),
-            ),
             TextButton(
               onPressed: _openAiActions,
               style: TextButton.styleFrom(
-                foregroundColor: context.appTextPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                foregroundColor: context.appTextSecondary,
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 minimumSize: const Size(40.0, 36.0),
               ),
               child: Text(
                 '✦ AI',
-                style: AppTypography.uiHeadline(
-                  fontSize: 13.0,
-                  fontWeight: FontWeight.w600,
-                  color: context.appTextPrimary,
+                style: AppTypography.uiLabel(
+                  fontSize: 14.0,
+                  color: context.appTextSecondary,
                 ),
               ),
             ),
-            IconButton(
-              onPressed: _confirmDelete,
-              icon: const Icon(Icons.delete_outline_rounded, size: 20.0),
-              color: context.appTextSecondary,
-              tooltip: 'Delete note',
+            PopupMenuButton<String>(
+              key: const Key('note_more_menu'),
+              tooltip: 'More',
+              icon: Icon(Icons.more_horiz_rounded, color: context.appTextPrimary),
+              color: context.appSurface,
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.0),
+                side: BorderSide(color: context.appBorder),
+              ),
+              onSelected: (value) {
+                switch (value) {
+                  case 'add_page':
+                    _addPageInside();
+                  case 'understand':
+                    _openUnderstandNote();
+                  case 'delete':
+                    _confirmDelete();
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'add_page', child: Text('Add page inside')),
+                PopupMenuItem(value: 'understand', child: Text('Understand note')),
+                PopupMenuItem(value: 'delete', child: Text('Delete note')),
+              ],
             ),
             const SizedBox(width: 4.0),
           ],
         ),
-        bottomNavigationBar: _buildFormattingToolbar(),
+        bottomNavigationBar: _isWritingBody ? _buildFormattingToolbar() : null,
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
-            child: Column(
+          // Tapping the empty page below the text continues writing there.
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _focusBody(atEnd: true),
+            child: SingleChildScrollView(
+            padding: const EdgeInsets.only(right: 24.0, top: 12.0, bottom: 12.0),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720.0),
+                child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildBreadcrumbs(),
+                // The editor's drag-handle gutter (26px) sits in the left margin,
+                // so its text lines up with the title.
+                Padding(
+                  padding: const EdgeInsets.only(left: 26.0),
+                  child: _buildBreadcrumbs(),
+                ),
 
-                TextField(
+                Padding(
+                  padding: const EdgeInsets.only(left: 26.0),
+                  child: TextField(
                   controller: _titleController,
                   focusNode: _titleFocusNode,
+                  autofocus: widget.initialNote?.title.isEmpty ?? false,
                   style: AppTypography.display(
                     fontSize: 32.0,
                     color: context.appTextPrimary,
@@ -669,6 +734,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   ),
                   maxLines: null,
                   textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => _focusBody(),
+                  ),
                 ),
                 const SizedBox(height: 16.0),
 
@@ -684,10 +752,21 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 const SizedBox(height: 56.0),
               ],
             ),
+              ),
+            ),
+          ),
           ),
         ),
       ),
     );
+  }
+
+  void _focusBody({bool atEnd = false}) {
+    final state = _editorKey.currentState;
+    if (state != null) {
+      dynamic dynamicState = state;
+      dynamicState.focusBody(atEnd: atEnd);
+    }
   }
 
   Widget _buildBreadcrumbs() {
@@ -709,7 +788,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     '/',
                     style: AppTypography.uiLabel(
                       fontSize: 13.0,
-                      color: AppColors.textTertiary,
+                      color: context.appTextTertiary,
                     ),
                   ),
                 ),
@@ -723,7 +802,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     style: AppTypography.uiLabel(
                       fontSize: 13.0,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
+                      color: context.appTextSecondary,
                     ),
                   ),
                 ),
@@ -831,7 +910,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               tooltip: 'Add Block',
             ),
             const Spacer(),
-            IconButton(
+            if (bottomInset > 0)
+              IconButton(
               icon: Icon(Icons.keyboard_hide_rounded, size: 20.0, color: context.appTextTertiary),
               onPressed: () {
                 FocusScope.of(context).unfocus();

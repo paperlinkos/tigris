@@ -255,7 +255,9 @@ void main() {
 
       expect(find.text('Reflections on strategy'), findsOneWidget);
 
-      // 5. Tap "+" toolbar button to add a Page block inline
+      // 5. Tap into the body, then "+" toolbar button to add a Page block inline
+      await tester.tap(find.text('Reflections on strategy'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('+'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Page'));
@@ -334,7 +336,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap delete icon
-      await tester.tap(find.byTooltip('Delete note'));
+      await tester.tap(find.byKey(const Key('note_more_menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete note'));
       await tester.pumpAndSettle();
 
       // Verify confirmation dialog warns about subpages
@@ -347,7 +351,9 @@ void main() {
       expect(find.text('Project Architecture'), findsOneWidget);
 
       // Tap delete again and confirm
-      await tester.tap(find.byTooltip('Delete note'));
+      await tester.tap(find.byKey(const Key('note_more_menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete note'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
@@ -383,8 +389,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('NOTES'), findsOneWidget);
-      expect(find.text('Recent Thought A'), findsNWidgets(2)); // square card + recent notes item
+      expect(find.text('Notes'), findsWidgets);
+      expect(find.text('Recent Thought A'), findsOneWidget);
     });
   });
 

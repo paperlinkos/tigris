@@ -36,18 +36,14 @@ void main() {
 
       // Verify Header Toggle & FAB Action
       expect(find.text('Notes'), findsWidgets);
-      expect(find.byKey(const Key('home_fab_menu')), findsOneWidget);
+      expect(find.byKey(const Key('new_note_button')), findsOneWidget);
 
-      // Verify Section: NOTES (Empty State)
-      expect(find.text('NOTES'), findsOneWidget);
+      // Verify empty state
       expect(find.text('Your notes will appear here.'), findsOneWidget);
       expect(find.text('Create your first note'), findsOneWidget);
 
-      // Tap FAB to open drop-up menu, then tap "New note"
-      await tester.tap(find.byKey(const Key('home_fab_menu')));
-      await tester.pumpAndSettle();
-      expect(find.text('New note'), findsOneWidget);
-      await tester.tap(find.text('New note'));
+      // Tap the compose button
+      await tester.tap(find.byKey(const Key('new_note_button')));
       await tester.pump();
       expect(createNoteTapped, isTrue);
 
@@ -88,12 +84,9 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Notes section
-      expect(find.text('NOTES'), findsOneWidget);
-
-      // Recent square cards + Notes list display the note
-      expect(find.text('Epictetus Enchiridion'), findsNWidgets(2)); // square card + notes list item
-      expect(find.text('Some things are in our control...'), findsOneWidget);
+      // Notes list displays the note and a preview of its content
+      expect(find.text('Epictetus Enchiridion'), findsOneWidget);
+      expect(find.textContaining('Some things are in our control...'), findsOneWidget);
     });
 
     testWidgets('HomeScreen updates immediately when notes are created, edited, and deleted via reactive stream', (WidgetTester tester) async {
