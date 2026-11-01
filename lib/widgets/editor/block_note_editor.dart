@@ -918,6 +918,7 @@ class _BlockRow extends StatefulWidget {
 class _BlockRowState extends State<_BlockRow> {
   bool _isHovered = false;
   bool _isDragActive = false;
+  bool _isMouseDrag = false;
 
   BlockNoteEditorState get _editor => widget.editorState;
 
@@ -976,6 +977,7 @@ class _BlockRowState extends State<_BlockRow> {
     );
 
     final handleChild = InkWell(
+      mouseCursor: SystemMouseCursors.grab,
       onTap: () => _editor.showBlockActionsSheet(context, index),
       borderRadius: BorderRadius.circular(4),
       child: SizedBox(
@@ -995,36 +997,62 @@ class _BlockRowState extends State<_BlockRow> {
       ),
     );
 
-    final dragHandle = LongPressDraggable<BlockDragData>(
-      data: dragData,
-      delay: const Duration(milliseconds: 200),
-      hapticFeedbackOnStart: true,
-      onDragStarted: () {
-        setState(() => _isDragActive = true);
-        _editor._onDragStarted(index);
-      },
-      onDragEnd: (_) {
-        setState(() => _isDragActive = false);
-        _editor._onDragEnd();
-      },
-      onDraggableCanceled: (_, __) {
-        setState(() => _isDragActive = false);
-        _editor._onDragEnd();
-      },
-      feedback: _DragFeedbackCard(block: block, subtreeCount: subtreeCount, isDark: isDark),
-      childWhenDragging: SizedBox(
-        width: 26,
-        child: Padding(
-          padding: const EdgeInsets.only(right: 6, top: 4, left: 2, bottom: 4),
-          child: Opacity(
-            opacity: 0.2,
-            child: Icon(Icons.drag_indicator_rounded, size: 18,
-                color: isDark ? Colors.white : Colors.black),
-          ),
+    void onDragStarted() {
+      setState(() {
+        _isDragActive = true;
+        _isMouseDrag = _isHovered;
+      });
+      _editor._onDragStarted(index);
+    }
+
+    void onDragFinished() {
+      setState(() {
+        _isDragActive = false;
+        _isMouseDrag = false;
+      });
+      _editor._onDragEnd();
+    }
+
+    final dragFeedback = _DragFeedbackCard(block: block, subtreeCount: subtreeCount, isDark: isDark);
+    final handleWhenDragging = SizedBox(
+      width: 26,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 6, top: 4, left: 2, bottom: 4),
+        child: Opacity(
+          opacity: 0.2,
+          child: Icon(Icons.drag_indicator_rounded, size: 18,
+              color: isDark ? Colors.white : Colors.black),
         ),
       ),
-      child: handleChild,
     );
+
+    // A mouse drags straight away. A finger presses first, so swiping across
+    // handles still scrolls the page. Only a mouse can hover, which tells them
+    // apart, and the type must not change mid-drag or the drag would be lost.
+    // Drop targets read the pointer position, hence the pointer anchor.
+    final Widget dragHandle = _isHovered || _isMouseDrag
+        ? Draggable<BlockDragData>(
+            data: dragData,
+            dragAnchorStrategy: pointerDragAnchorStrategy,
+            onDragStarted: onDragStarted,
+            onDragEnd: (_) => onDragFinished(),
+            onDraggableCanceled: (_, __) => onDragFinished(),
+            feedback: dragFeedback,
+            childWhenDragging: handleWhenDragging,
+            child: handleChild,
+          )
+        : LongPressDraggable<BlockDragData>(
+            data: dragData,
+            delay: const Duration(milliseconds: 200),
+            hapticFeedbackOnStart: true,
+            dragAnchorStrategy: pointerDragAnchorStrategy,
+            onDragStarted: onDragStarted,
+            onDragEnd: (_) => onDragFinished(),
+            onDraggableCanceled: (_, __) => onDragFinished(),
+            feedback: dragFeedback,
+            childWhenDragging: handleWhenDragging,
+            child: handleChild,
+          );
 
     final rowContent = _buildContent(context, block, index, dragHandle, indentPadding);
 

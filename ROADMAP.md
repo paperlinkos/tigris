@@ -50,10 +50,11 @@ A first version exists, but needs a token pasted in and each page shared by hand
 
 ## 5. Rearrange lines like Notion
 
-Dragging already exists in the editor (`block_note_editor.dart`), but it hasn't
-been tested on the new design.
+Dragging now works with a mouse, confirmed in the browser. Finger dragging is
+only covered by automated tests so far.
 
-- [ ] Test dragging by mouse and on a phone, and fix what breaks
+- [x] Fix dragging with a mouse
+- [ ] Test dragging with a finger on a real phone
 - [ ] Make the drag handle easy to find without cluttering the page
 - [ ] Show clearly where a line will land
 - [ ] Drag a line onto a page to move it inside that page
