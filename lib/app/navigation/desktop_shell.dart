@@ -187,7 +187,7 @@ class _DesktopShellState extends State<DesktopShell> {
 
   Widget _buildPane(BuildContext context, Note? note) => Stack(children: [
     if (note != null)
-      NoteDetailScreen(key: ValueKey(_openNoteId), noteId: note.id, initialNote: note, noteRepository: widget.noteRepository, onNavigateToNote: _open, onDeleted: () => _afterDelete(note.id))
+      NoteDetailScreen(key: ValueKey(_openNoteId), noteId: note.id, initialNote: note, noteRepository: widget.noteRepository, onNavigateToNote: _open, onDeleted: () => _afterDelete(note.id), embeddedTitleInset: _sidebarHidden ? 56 : 16)
     else
       Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text('Your notes will appear here.', style: AppTypography.uiLabel(fontSize: 13, fontWeight: FontWeight.w400, color: context.appTextSecondary)),

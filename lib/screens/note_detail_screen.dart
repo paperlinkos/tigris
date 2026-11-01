@@ -21,6 +21,9 @@ class NoteDetailScreen extends StatefulWidget {
   final ValueChanged<String>? onNavigateToNote;
   final VoidCallback? onDeleted;
 
+  /// Left inset of the breadcrumb when embedded, to clear a control over the pane.
+  final double embeddedTitleInset;
+
   const NoteDetailScreen({
     super.key,
     required this.noteId,
@@ -29,6 +32,7 @@ class NoteDetailScreen extends StatefulWidget {
     this.navigationAncestors,
     this.onNavigateToNote,
     this.onDeleted,
+    this.embeddedTitleInset = 16.0,
   });
 
   @override
@@ -305,36 +309,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final repo = _repo;
     if (_note == null || repo == null) return;
 
-    final nameController = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: ctx.appSurface,
-        title: Text(
-          'New page inside this note',
-          style: AppTypography.title(fontSize: 18.0, color: ctx.appTextPrimary),
-        ),
-        content: TextField(
-          key: const Key('new_page_name_field'),
-          controller: nameController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'Page name'),
-          onSubmitted: (value) => Navigator.of(ctx).pop(value.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(nameController.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
+      builder: (_) => const _NewPageDialog(),
     );
-    nameController.dispose();
     if (name == null || name.isEmpty || !mounted) return;
 
     final now = DateTime.now();
@@ -671,6 +649,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 )
               : null,
           centerTitle: false,
+          toolbarHeight: _isEmbedded ? 44.0 : null,
+          titleSpacing: _isEmbedded ? widget.embeddedTitleInset : null,
+          title: _isEmbedded ? _buildEmbeddedBreadcrumb() : null,
           actions: [
             TextButton(
               onPressed: _openAiActions,
@@ -716,7 +697,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             const SizedBox(width: 4.0),
           ],
         ),
-        bottomNavigationBar: _isWritingBody ? _buildFormattingToolbar() : null,
+        bottomNavigationBar: _isWritingBody && !_isEmbedded ? _buildFormattingToolbar() : null,
         body: SafeArea(
           // Tapping the empty page below the text continues writing there.
           child: GestureDetector(
@@ -772,6 +753,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   noteRepository: _repo,
                   onChanged: _onBlocksChanged,
                   onOpenNote: _openPageBlockNote,
+                  desktopFormatting: _isEmbedded,
+                  onRequestNewPage: _addPageInside,
                 ),
 
                 const SizedBox(height: 56.0),
@@ -794,8 +777,44 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     }
   }
 
+  bool get _isEmbedded => widget.onNavigateToNote != null;
+
+  /// The path along the top of the pane. Deep paths collapse their middle.
+  Widget _buildEmbeddedBreadcrumb() {
+    final shown = _ancestors.length > 3
+        ? [_ancestors.first, null, ..._ancestors.sublist(_ancestors.length - 2)]
+        : _ancestors;
+    final style = AppTypography.uiLabel(fontSize: 12.0, fontWeight: FontWeight.w400, color: context.appTextSecondary);
+    return Row(
+      key: const Key('note_breadcrumb'),
+      children: [
+        for (final ancestor in shown) ...[
+          if (ancestor == null)
+            Text('...', style: style)
+          else
+            Flexible(
+              child: InkWell(
+                onTap: () => _navigateToAncestor(ancestor),
+                borderRadius: BorderRadius.circular(4),
+                child: Text(
+                  ancestor.title.isEmpty ? 'Untitled' : ancestor.title,
+                  style: style,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+            child: Text('/', style: style),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildBreadcrumbs() {
-    if (_ancestors.isEmpty) return const SizedBox.shrink();
+    if (_ancestors.isEmpty || _isEmbedded) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14.0),
@@ -984,6 +1003,52 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NewPageDialog extends StatefulWidget {
+  const _NewPageDialog();
+
+  @override
+  State<_NewPageDialog> createState() => _NewPageDialogState();
+}
+
+class _NewPageDialogState extends State<_NewPageDialog> {
+  final TextEditingController _nameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: context.appSurface,
+      title: Text(
+        'New page inside this note',
+        style: AppTypography.title(fontSize: 18.0, color: context.appTextPrimary),
+      ),
+      content: TextField(
+        key: const Key('new_page_name_field'),
+        controller: _nameController,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(hintText: 'Page name'),
+        onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_nameController.text.trim()),
+          child: const Text('Create'),
+        ),
+      ],
     );
   }
 }

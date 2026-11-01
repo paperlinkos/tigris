@@ -101,12 +101,18 @@ class BlockNoteEditor extends StatefulWidget {
   final ValueChanged<List<NoteBlock>> onChanged;
   final Function(String targetNoteId)? onOpenNote;
 
+  /// Big-screen editing: a toolbar over selected text and a `/` menu.
+  final bool desktopFormatting;
+  final VoidCallback? onRequestNewPage;
+
   const BlockNoteEditor({
     super.key,
     required this.blocks,
     this.noteRepository,
     required this.onChanged,
     this.onOpenNote,
+    this.desktopFormatting = false,
+    this.onRequestNewPage,
   });
 
   @override
@@ -915,7 +921,28 @@ class _BlockRow extends StatefulWidget {
   State<_BlockRow> createState() => _BlockRowState();
 }
 
+class _SlashOption {
+  final String label;
+  final BlockType type;
+  final String? note;
+
+  const _SlashOption(this.label, this.type, {this.note});
+}
+
+const List<_SlashOption> _slashOptions = [
+  _SlashOption('Text', BlockType.text),
+  _SlashOption('Heading', BlockType.heading),
+  _SlashOption('Bullet list', BlockType.bullet),
+  _SlashOption('Numbered list', BlockType.number),
+  _SlashOption('Page inside', BlockType.page, note: 'new note'),
+  _SlashOption('Divider', BlockType.divider),
+];
+
 class _BlockRowState extends State<_BlockRow> {
+  final LayerLink _floatLink = LayerLink();
+  final OverlayPortalController _floatController = OverlayPortalController();
+  bool _slashDismissed = false;
+  int _slashIndex = 0;
   bool _isHovered = false;
   bool _isDragActive = false;
   bool _isMouseDrag = false;
@@ -926,6 +953,7 @@ class _BlockRowState extends State<_BlockRow> {
   void initState() {
     super.initState();
     widget.focusNode.addListener(_handleFocusChange);
+    widget.controller.addListener(_syncFloating);
   }
 
   @override
@@ -935,11 +963,16 @@ class _BlockRowState extends State<_BlockRow> {
       oldWidget.focusNode.removeListener(_handleFocusChange);
       widget.focusNode.addListener(_handleFocusChange);
     }
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_syncFloating);
+      widget.controller.addListener(_syncFloating);
+    }
   }
 
   @override
   void dispose() {
     widget.focusNode.removeListener(_handleFocusChange);
+    widget.controller.removeListener(_syncFloating);
     super.dispose();
   }
 
@@ -947,6 +980,195 @@ class _BlockRowState extends State<_BlockRow> {
     if (widget.focusNode.hasFocus) {
       _editor._setActiveIndex(widget.index);
     }
+    _syncFloating();
+  }
+
+  bool get _usesFloating {
+    final type = widget.block.type;
+    return _editor.widget.desktopFormatting &&
+        type != BlockType.page &&
+        type != BlockType.divider;
+  }
+
+  bool get _showSlash =>
+      _usesFloating &&
+      !_slashDismissed &&
+      widget.focusNode.hasFocus &&
+      widget.controller.text.startsWith('/') &&
+      !widget.controller.text.contains(' ');
+
+  bool get _showToolbar {
+    final selection = widget.controller.selection;
+    return _usesFloating &&
+        !_showSlash &&
+        widget.focusNode.hasFocus &&
+        selection.isValid &&
+        !selection.isCollapsed;
+  }
+
+  List<_SlashOption> get _slashMatches {
+    final query = widget.controller.text.replaceFirst('/', '').toLowerCase();
+    return _slashOptions.where((o) => o.label.toLowerCase().contains(query)).toList();
+  }
+
+  void _syncFloating() {
+    if (!mounted || !_editor.widget.desktopFormatting) return;
+    if (!widget.controller.text.startsWith('/')) _slashDismissed = false;
+    final matches = _showSlash ? _slashMatches.length : 0;
+    _slashIndex = matches == 0 ? 0 : _slashIndex.clamp(0, matches - 1);
+    if (_showSlash || _showToolbar) {
+      if (!_floatController.isShowing) _floatController.show();
+    } else if (_floatController.isShowing) {
+      _floatController.hide();
+    }
+    setState(() {});
+  }
+
+  void _moveSlash(int delta) {
+    final count = _slashMatches.length;
+    if (count == 0) return;
+    setState(() => _slashIndex = (_slashIndex + delta).clamp(0, count - 1));
+  }
+
+  void _pickSlash(_SlashOption option) {
+    final index = widget.index;
+    widget.controller.value = TextEditingValue.empty;
+    switch (option.type) {
+      case BlockType.page:
+        _editor.transformBlock(index, BlockType.text);
+        _editor.widget.onRequestNewPage?.call();
+      case BlockType.divider:
+        _editor.transformBlock(index, BlockType.divider);
+        _editor.insertBlockAfter(index, '');
+      default:
+        _editor.transformBlock(index, option.type);
+    }
+    _slashIndex = 0;
+    _syncFloating();
+  }
+
+  bool _isFormatted(String type) {
+    final selection = widget.controller.selection;
+    return widget.controller.attributes.any(
+      (a) => a.type == type && a.start == selection.start && a.end == selection.end,
+    );
+  }
+
+  Widget _buildFloating(BuildContext context) {
+    final box = this.context.findRenderObject() as RenderBox?;
+    final rowBottom = box == null || !box.attached
+        ? 0.0
+        : box.localToGlobal(Offset(0, box.size.height)).dy;
+    final slash = _showSlash;
+    final above = !slash || rowBottom > MediaQuery.of(context).size.height - 250;
+    final bar = TextFieldTapRegion(
+      child: ExcludeFocus(
+        child: Material(
+          color: context.appRaised,
+          elevation: 4,
+          shadowColor: Colors.black.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: context.appBorder),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: slash ? _buildSlashMenu(context) : _buildSelectionToolbar(context),
+          ),
+        ),
+      ),
+    );
+    return Align(
+      alignment: Alignment.topLeft,
+      child: CompositedTransformFollower(
+        link: _floatLink,
+        showWhenUnlinked: false,
+        targetAnchor: above ? Alignment.topLeft : Alignment.bottomLeft,
+        followerAnchor: above ? Alignment.bottomLeft : Alignment.topLeft,
+        offset: Offset(26, above ? -4 : 2),
+        child: bar,
+      ),
+    );
+  }
+
+  Widget _buildSelectionToolbar(BuildContext context) {
+    Widget button(String tooltip, Widget label, VoidCallback onTap, {bool active = false}) {
+      return Tooltip(
+        message: tooltip,
+        child: InkWell(
+          key: Key('format_${tooltip.toLowerCase().replaceAll(' ', '_')}'),
+          borderRadius: BorderRadius.circular(4),
+          hoverColor: context.appRowHover,
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 30),
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: active ? context.appRowSelected : null,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: DefaultTextStyle.merge(
+              style: AppTypography.uiHeadline(fontSize: 14, fontWeight: FontWeight.w500, color: context.appTextPrimary),
+              child: label,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        button('Bold', const Text('B', style: TextStyle(fontWeight: FontWeight.w700)), _editor.toggleBold, active: _isFormatted('bold')),
+        button('Italic', const Text('I', style: TextStyle(fontStyle: FontStyle.italic)), _editor.toggleItalic, active: _isFormatted('italic')),
+        button('Heading', const Text('H'), () => _editor.setBlockType(BlockType.heading), active: widget.block.type == BlockType.heading),
+        button('Bullet list', const Text('•'), () => _editor.setBlockType(BlockType.bullet), active: widget.block.type == BlockType.bullet),
+        button('Numbered list', const Text('1.'), () => _editor.setBlockType(BlockType.number), active: widget.block.type == BlockType.number),
+      ],
+    );
+  }
+
+  Widget _buildSlashMenu(BuildContext context) {
+    final matches = _slashMatches;
+    final labelStyle = AppTypography.uiHeadline(fontSize: 14, fontWeight: FontWeight.w500, color: context.appTextPrimary);
+    final noteStyle = AppTypography.uiLabel(fontSize: 12, fontWeight: FontWeight.w400, color: context.appTextSecondary);
+    return SizedBox(
+      key: const Key('slash_menu'),
+      width: 212,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (matches.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text('No matching type.', style: noteStyle),
+            ),
+          for (var i = 0; i < matches.length; i++)
+            InkWell(
+              borderRadius: BorderRadius.circular(6),
+              hoverColor: context.appRowHover,
+              onTap: () => _pickSlash(matches[i]),
+              child: Container(
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: i == _slashIndex ? context.appRowHover : null,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(matches[i].label, style: labelStyle)),
+                    if (matches[i].note != null) Text(matches[i].note!, style: noteStyle),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1138,7 +1360,8 @@ class _BlockRowState extends State<_BlockRow> {
     final controller = widget.controller;
     final focusNode = widget.focusNode;
 
-    return Padding(
+    final slashActive = _showSlash;
+    final textRow = Padding(
       padding: indentPadding.add(const EdgeInsets.symmetric(vertical: 2.0)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1148,7 +1371,22 @@ class _BlockRowState extends State<_BlockRow> {
           Expanded(
             child: CallbackShortcuts(
               bindings: {
-                const SingleActivator(LogicalKeyboardKey.enter): () => _editor._handleEnter(index),
+                const SingleActivator(LogicalKeyboardKey.enter): () {
+                  final matches = _slashMatches;
+                  if (slashActive && matches.isNotEmpty) {
+                    _pickSlash(matches[_slashIndex]);
+                  } else {
+                    _editor._handleEnter(index);
+                  }
+                },
+                if (slashActive) ...{
+                  const SingleActivator(LogicalKeyboardKey.arrowDown): () => _moveSlash(1),
+                  const SingleActivator(LogicalKeyboardKey.arrowUp): () => _moveSlash(-1),
+                  const SingleActivator(LogicalKeyboardKey.escape): () {
+                    _slashDismissed = true;
+                    _syncFloating();
+                  },
+                },
                 const SingleActivator(LogicalKeyboardKey.backspace): () {
                   if (controller.selection.isCollapsed && controller.selection.start == 0) {
                     _editor._handleBackspace(index);
@@ -1247,6 +1485,13 @@ class _BlockRowState extends State<_BlockRow> {
           ),
         ],
       ),
+    );
+
+    if (!_editor.widget.desktopFormatting) return textRow;
+    return OverlayPortal(
+      controller: _floatController,
+      overlayChildBuilder: _buildFloating,
+      child: CompositedTransformTarget(link: _floatLink, child: textRow),
     );
   }
 
