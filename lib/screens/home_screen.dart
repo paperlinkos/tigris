@@ -10,6 +10,8 @@ import '../services/auth_service.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/note_sync_engine.dart';
 import '../services/sync_coordinator.dart';
+import '../services/backup_service.dart';
+import '../services/drive_account.dart';
 import '../repositories/task_repository.dart';
 import '../views/tasks_view.dart';
 import '../app/theme/app_typography.dart';
@@ -28,6 +30,8 @@ class HomeScreen extends StatefulWidget {
   final CloudSyncService? syncService;
   final NoteSyncEngine? syncEngine;
   final SyncCoordinator? syncCoordinator;
+  final BackupService? backupService;
+  final DriveAccount? driveAccount;
 
   const HomeScreen({
     super.key,
@@ -37,6 +41,8 @@ class HomeScreen extends StatefulWidget {
     this.syncService,
     this.syncEngine,
     this.syncCoordinator,
+    this.backupService,
+    this.driveAccount,
   });
 
   @override
@@ -182,6 +188,8 @@ class HomeScreenState extends State<HomeScreen> {
           syncService: widget.syncService,
           syncEngine: widget.syncEngine,
           syncCoordinator: widget.syncCoordinator,
+          backupService: widget.backupService,
+          driveAccount: widget.driveAccount,
         ),
       ),
     );

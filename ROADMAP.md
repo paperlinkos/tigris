@@ -34,9 +34,12 @@ against real Firebase with a real account.
 
 Sync keeps devices matched. A backup is a separate copy you can return to.
 
-- [ ] Export all notes to a file you can read without Tigris
-- [ ] Save that backup to Google Drive, by hand and then automatically
-- [ ] Restore from a backup
+Built for Android and iOS with a simulated Drive. Not yet run against real Drive.
+
+- [x] Export all notes to a file you can read without Tigris
+- [x] Save that backup to Google Drive, by hand and then automatically
+- [x] Restore from a backup
+- [ ] Turn on the Drive API and test with your real Google account
 
 ## 4. Bring everything over from Notion
 

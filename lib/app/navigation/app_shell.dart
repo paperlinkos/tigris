@@ -18,6 +18,8 @@ import '../../screens/review_session_screen.dart';
 import '../../services/cloud_sync_service.dart';
 import '../../services/note_sync_engine.dart';
 import '../../services/sync_coordinator.dart';
+import '../../services/backup_service.dart';
+import '../../services/drive_account.dart';
 
 class AppShell extends StatefulWidget {
   final StorageInterface? storage;
@@ -28,6 +30,8 @@ class AppShell extends StatefulWidget {
   final CloudSyncService? syncService;
   final NoteSyncEngine? syncEngine;
   final SyncCoordinator? syncCoordinator;
+  final BackupService? backupService;
+  final DriveAccount? driveAccount;
 
   const AppShell({
     super.key,
@@ -39,6 +43,8 @@ class AppShell extends StatefulWidget {
     this.syncService,
     this.syncEngine,
     this.syncCoordinator,
+    this.backupService,
+    this.driveAccount,
   });
 
   @override
@@ -111,6 +117,8 @@ class _AppShellState extends State<AppShell> {
           syncService: widget.syncService,
           syncEngine: widget.syncEngine,
           syncCoordinator: widget.syncCoordinator,
+          backupService: widget.backupService,
+          driveAccount: widget.driveAccount,
           onStartReview: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(

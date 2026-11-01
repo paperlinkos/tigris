@@ -8,16 +8,21 @@ import '../services/auth_service.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/note_sync_engine.dart';
 import '../services/sync_coordinator.dart';
+import '../services/backup_service.dart';
+import '../services/drive_account.dart';
 import '../widgets/calm_scaffold.dart';
 import 'glossary_screen.dart';
 import 'login_screen.dart';
 import 'notion_import_screen.dart';
+import 'backup_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   final AuthService? authService;
   final CloudSyncService? syncService;
   final NoteSyncEngine? syncEngine;
   final SyncCoordinator? syncCoordinator;
+  final BackupService? backupService;
+  final DriveAccount? driveAccount;
 
   const SettingsScreen({
     super.key,
@@ -25,6 +30,8 @@ class SettingsScreen extends StatelessWidget {
     this.syncService,
     this.syncEngine,
     this.syncCoordinator,
+    this.backupService,
+    this.driveAccount,
   });
 
   @override
@@ -305,6 +312,20 @@ class SettingsScreen extends StatelessWidget {
             title: 'Spaced Repetition',
             subtitle: 'Standard SM-2 Interval Calculation',
             icon: Icons.schedule_rounded,
+          ),
+          Divider(color: context.appBorderSubtle),
+          _buildSettingsItem(
+            context,
+            title: 'Google Drive Backup',
+            subtitle: 'Keep a copy of your notes in your own Drive',
+            icon: Icons.backup_outlined,
+            onTap: () {
+              if (!DriveAccount.isSupported || backupService == null || driveAccount == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Drive backup isn't available on this device yet.")));
+                return;
+              }
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => BackupScreen(service: backupService!, account: driveAccount!)));
+            },
           ),
           Divider(color: context.appBorderSubtle),
           _buildSettingsItem(

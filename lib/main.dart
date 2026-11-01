@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,6 +23,9 @@ import 'repositories/note_repository.dart';
 import 'repositories/offline_first_note_repository.dart';
 import 'repositories/quiz_repository.dart';
 import 'repositories/review_repository.dart';
+import 'repositories/drive_backup_store.dart';
+import 'services/backup_service.dart';
+import 'services/drive_account.dart';
 import 'services/cloud_sync_service.dart';
 import 'services/note_sync_engine.dart';
 import 'services/sync_coordinator.dart';
@@ -36,7 +41,6 @@ void main() async {
   }
   runApp(const PersonalLearningApp());
 }
-
 class PersonalLearningApp extends StatefulWidget {
   final StorageInterface? storage;
   final NoteRepository? noteRepository;
@@ -69,6 +73,8 @@ class _PersonalLearningAppState extends State<PersonalLearningApp>
   late final ThemeController _themeController;
   NoteSyncEngine? _syncEngine;
   SyncCoordinator? _syncCoordinator;
+  BackupService? _backupService;
+  DriveAccount? _driveAccount;
 
   @override
   void initState() {
@@ -123,6 +129,17 @@ class _PersonalLearningAppState extends State<PersonalLearningApp>
         onLocalChange: _syncCoordinator?.requestSoon,
         onSyncRequested: _syncCoordinator?.syncNow,
       );
+      if (DriveAccount.isSupported) {
+        final account = DriveAccount();
+        _driveAccount = account;
+        _backupService = BackupService(
+          notes: _noteRepository,
+          localRepo: localRepo,
+          storage: storage,
+          store: DriveBackupStore(headers: account.authHeaders),
+        );
+        _runDriveAutoBackup();
+      }
     }
     _reviewRepository =
         widget.reviewRepository ?? LocalReviewRepository(storage: storage);
@@ -145,7 +162,21 @@ class _PersonalLearningAppState extends State<PersonalLearningApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _syncCoordinator?.onAppResumed();
+    if (state == AppLifecycleState.resumed) {
+      _syncCoordinator?.onAppResumed();
+      _runDriveAutoBackup();
+    }
+  }
+
+  void _runDriveAutoBackup() {
+    final account = _driveAccount;
+    final service = _backupService;
+    if (account == null || service == null) return;
+    unawaited(() async {
+      try {
+        if (await account.connectSilently()) await service.maybeAutoBackup();
+      } catch (_) {}
+    }());
   }
 
   @override
@@ -180,6 +211,8 @@ class _PersonalLearningAppState extends State<PersonalLearningApp>
                 syncService: _syncService,
                 syncEngine: _syncEngine,
                 syncCoordinator: _syncCoordinator,
+                backupService: _backupService,
+                driveAccount: _driveAccount,
               ),
             );
           },
