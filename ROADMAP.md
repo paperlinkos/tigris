@@ -92,7 +92,12 @@ only covered by automated tests so far.
 - [ ] Make it fun: score and "try the ones I missed", kept simple
 - [ ] Remove the fake AI (`LocalAiService`) from the live app
 
-## 10. Tidy up
+## 10. New logo
+
+- [ ] Choose a new logo to replace the current one, which you don't like
+- [ ] Update the app icon on every platform
+
+## 11. Tidy up
 
 - [ ] Decide what stays: flashcards, Teach Me, Review, Tasks, glossary, Notion import
 - [ ] Remove old code nothing uses, such as `notes_screen.dart` if unneeded

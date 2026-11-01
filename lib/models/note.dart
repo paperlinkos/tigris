@@ -48,7 +48,16 @@ class Note {
         final result = list
             .map((e) => NoteBlock.fromJson(e as Map<String, dynamic>))
             .toList();
-        if (result.isNotEmpty) return result;
+        if (result.isNotEmpty) {
+          // Older saves can hold repeated line ids, which crash the editor.
+          final seen = <String>{};
+          return [
+            for (final block in result)
+              seen.add(block.id)
+                  ? block
+                  : block.copyWith(id: NoteBlock.generateId()),
+          ];
+        }
       } catch (_) {
         // Fallback to legacy parsing if jsonDecode fails
       }

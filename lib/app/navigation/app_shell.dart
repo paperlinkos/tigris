@@ -20,6 +20,7 @@ import '../../services/note_sync_engine.dart';
 import '../../services/sync_coordinator.dart';
 import '../../services/backup_service.dart';
 import '../../services/drive_account.dart';
+import 'desktop_shell.dart';
 
 class AppShell extends StatefulWidget {
   final StorageInterface? storage;
@@ -109,17 +110,9 @@ class _AppShellState extends State<AppShell> {
       reviewRepository: _reviewRepository,
       flashcardRepository: _flashcardRepository,
       quizRepository: _quizRepository,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: HomeScreen(
-          key: _homeKey,
-          onCreateNote: _handleCreateNote,
-          syncService: widget.syncService,
-          syncEngine: widget.syncEngine,
-          syncCoordinator: widget.syncCoordinator,
-          backupService: widget.backupService,
-          driveAccount: widget.driveAccount,
-          onStartReview: () async {
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          Future<void> onStartReview() async {
             await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => RepositoryScope(
@@ -132,8 +125,32 @@ class _AppShellState extends State<AppShell> {
               ),
             );
             _homeKey.currentState?.reload();
-          },
-        ),
+          }
+          if (constraints.maxWidth >= desktopBreakpoint) {
+            return DesktopShell(
+              noteRepository: _noteRepository,
+              syncService: widget.syncService,
+              syncEngine: widget.syncEngine,
+              syncCoordinator: widget.syncCoordinator,
+              backupService: widget.backupService,
+              driveAccount: widget.driveAccount,
+              onStartReview: onStartReview,
+            );
+          }
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            body: HomeScreen(
+              key: _homeKey,
+              onCreateNote: _handleCreateNote,
+              syncService: widget.syncService,
+              syncEngine: widget.syncEngine,
+              syncCoordinator: widget.syncCoordinator,
+              backupService: widget.backupService,
+              driveAccount: widget.driveAccount,
+              onStartReview: onStartReview,
+            ),
+          );
+        },
       ),
     );
   }

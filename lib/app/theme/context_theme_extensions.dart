@@ -12,4 +12,9 @@ extension AppContextColors on BuildContext {
   Color get appTextTertiary => isDarkMode ? AppColors.darkTextTertiary : AppColors.textTertiary;
   Color get appBorder => isDarkMode ? AppColors.darkBorder : AppColors.border;
   Color get appBorderSubtle => isDarkMode ? AppColors.darkBorderSubtle : AppColors.borderSubtle;
+  Color get appSidebar => isDarkMode ? AppColors.darkSidebar : AppColors.sidebar;
+  Color get appRaised => isDarkMode ? AppColors.darkRaised : AppColors.raised;
+  Color get appRowHover => isDarkMode ? AppColors.darkRowHover : AppColors.rowHover;
+  Color get appRowSelected => isDarkMode ? AppColors.darkRowSelected : AppColors.rowSelected;
+  Color get appLineStrong => isDarkMode ? AppColors.darkLineStrong : AppColors.lineStrong;
 }

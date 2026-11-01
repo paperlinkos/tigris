@@ -217,7 +217,7 @@ class NotionImportService {
       final blockData = block[type] as Map<String, dynamic>?;
       if (blockData == null) continue;
 
-      final blockId = (block['id'] as String?) ?? 'blk_${DateTime.now().microsecondsSinceEpoch}';
+      final blockId = (block['id'] as String?) ?? NoteBlock.generateId();
       final hasChildren = block['has_children'] == true;
 
       final richTextList = blockData['rich_text'] as List<dynamic>?;

@@ -11,7 +11,9 @@ class NotesTreeList extends StatefulWidget {
   final String searchQuery;
   final VoidCallback onCreateNote;
   final ValueChanged<Note> onOpenNote;
-  final ValueChanged<Note> onLongPressNote;
+  final ValueChanged<Note>? onLongPressNote;
+  final bool compact;
+  final String? selectedNoteId;
 
   const NotesTreeList({
     super.key,
@@ -19,7 +21,9 @@ class NotesTreeList extends StatefulWidget {
     required this.searchQuery,
     required this.onCreateNote,
     required this.onOpenNote,
-    required this.onLongPressNote,
+    this.onLongPressNote,
+    this.compact = false,
+    this.selectedNoteId,
   });
 
   @override
@@ -28,6 +32,31 @@ class NotesTreeList extends StatefulWidget {
 
 class _NotesTreeListState extends State<NotesTreeList> {
   final Set<String> _expandedIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _expandSelectedAncestors();
+  }
+
+  @override
+  void didUpdateWidget(covariant NotesTreeList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedNoteId != oldWidget.selectedNoteId || widget.notes != oldWidget.notes) {
+      _expandSelectedAncestors();
+    }
+  }
+
+  void _expandSelectedAncestors() {
+    final selectedId = widget.selectedNoteId;
+    if (selectedId == null) return;
+    final byId = {for (final note in widget.notes) note.id: note};
+    var parentId = byId[selectedId]?.parentId;
+    while (parentId != null) {
+      _expandedIds.add(parentId);
+      parentId = byId[parentId]?.parentId;
+    }
+  }
 
   List<({Note note, int depth, bool hasChildren})> _visibleRows() {
     final byRecent = List<Note>.from(widget.notes)
@@ -90,11 +119,27 @@ class _NotesTreeListState extends State<NotesTreeList> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(left: 8.0, right: 8.0, bottom: 96.0),
+      padding: widget.compact
+          ? const EdgeInsets.only(left: 8.0, right: 8.0, bottom: 8.0)
+          : const EdgeInsets.only(left: 8.0, right: 8.0, bottom: 96.0),
       itemCount: rows.length,
       itemBuilder: (context, index) {
         final row = rows[index];
-        return _NoteRow(
+        return widget.compact ? _CompactNoteRow(
+          key: ValueKey('note_row_${row.note.id}'),
+          note: row.note,
+          depth: row.depth,
+          hasChildren: row.hasChildren,
+          isExpanded: _expandedIds.contains(row.note.id),
+          isSelected: row.note.id == widget.selectedNoteId,
+          onToggle: () {
+            setState(() {
+              if (!_expandedIds.remove(row.note.id)) _expandedIds.add(row.note.id);
+            });
+          },
+          onTap: () => widget.onOpenNote(row.note),
+          onLongPress: widget.onLongPressNote == null ? null : () => widget.onLongPressNote!(row.note),
+        ) : _NoteRow(
           key: ValueKey('note_row_${row.note.id}'),
           note: row.note,
           depth: row.depth,
@@ -108,13 +153,19 @@ class _NotesTreeListState extends State<NotesTreeList> {
             });
           },
           onTap: () => widget.onOpenNote(row.note),
-          onLongPress: () => widget.onLongPressNote(row.note),
+          onLongPress: () => widget.onLongPressNote?.call(row.note),
         );
       },
     );
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    if (widget.compact) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(8.0, 12.0, 8.0, 8.0),
+        child: _CompactEmptyState(),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
       child: Column(
@@ -137,6 +188,86 @@ class _NotesTreeListState extends State<NotesTreeList> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CompactEmptyState extends StatelessWidget {
+  const _CompactEmptyState();
+
+  @override
+  Widget build(BuildContext context) => Text(
+    'Your notes will appear here.',
+    style: AppTypography.uiLabel(fontSize: 13.0, fontWeight: FontWeight.w400, color: context.appTextSecondary),
+  );
+}
+
+class _CompactNoteRow extends StatefulWidget {
+  final Note note;
+  final int depth;
+  final bool hasChildren;
+  final bool isExpanded;
+  final bool isSelected;
+  final VoidCallback onToggle;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+
+  const _CompactNoteRow({super.key, required this.note, required this.depth, required this.hasChildren, required this.isExpanded, required this.isSelected, required this.onToggle, required this.onTap, this.onLongPress});
+
+  @override
+  State<_CompactNoteRow> createState() => _CompactNoteRowState();
+}
+
+class _CompactNoteRowState extends State<_CompactNoteRow> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.note.title.trim().isEmpty ? 'Untitled' : widget.note.title.trim();
+    final showMore = (_hovered || _focused) && widget.onLongPress != null;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Focus(
+        onFocusChange: (value) => setState(() => _focused = value),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
+          child: Container(
+            height: 30.0,
+            decoration: BoxDecoration(
+              color: widget.isSelected ? context.appRowSelected : (_hovered ? context.appRowHover : null),
+              borderRadius: BorderRadius.circular(6.0),
+            ),
+            child: Row(children: [
+              SizedBox(width: 16.0 * widget.depth),
+              SizedBox(
+                width: 22.0,
+                child: widget.hasChildren ? IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 22.0, height: 30.0),
+                  onPressed: widget.onToggle,
+                  icon: Icon(widget.isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded, size: 18.0, color: context.appTextSecondary),
+                ) : null,
+              ),
+              Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.uiHeadline(fontSize: 14.0, fontWeight: FontWeight.w500, color: context.appTextPrimary))),
+              SizedBox(
+                width: 24.0,
+                height: 24.0,
+                child: showMore ? IconButton(
+                  tooltip: 'More', padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 24.0, height: 24.0),
+                  onPressed: widget.onLongPress,
+                  icon: Icon(Icons.more_horiz_rounded, size: 18.0, color: context.appTextSecondary),
+                ) : null,
+              ),
+              const SizedBox(width: 4.0),
+            ]),
+          ),
+        ),
       ),
     );
   }

@@ -59,6 +59,11 @@ class InlineAttribute {
 }
 
 class NoteBlock {
+  // The clock alone repeats: on the web it only has millisecond precision.
+  static int _nextIdSuffix = 0;
+  static String generateId() =>
+      'blk_${DateTime.now().microsecondsSinceEpoch}_${_nextIdSuffix++}';
+
   final String id;
   final BlockType type;
   final String content;
@@ -73,7 +78,7 @@ class NoteBlock {
     this.indentLevel = 0,
     this.targetNoteId,
     List<InlineAttribute>? inlineAttributes,
-  })  : id = id ?? 'blk_${DateTime.now().microsecondsSinceEpoch}',
+  })  : id = id ?? generateId(),
         inlineAttributes = inlineAttributes ?? const [];
 
   NoteBlock copyWith({

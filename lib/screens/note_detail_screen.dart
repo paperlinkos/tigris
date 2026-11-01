@@ -18,6 +18,8 @@ class NoteDetailScreen extends StatefulWidget {
   final Note? initialNote;
   final NoteRepository? noteRepository;
   final List<Note>? navigationAncestors;
+  final ValueChanged<String>? onNavigateToNote;
+  final VoidCallback? onDeleted;
 
   const NoteDetailScreen({
     super.key,
@@ -25,6 +27,8 @@ class NoteDetailScreen extends StatefulWidget {
     this.initialNote,
     this.noteRepository,
     this.navigationAncestors,
+    this.onNavigateToNote,
+    this.onDeleted,
   });
 
   @override
@@ -248,6 +252,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     await _saveCurrentChanges();
     if (!mounted) return;
 
+    if (widget.onNavigateToNote != null) {
+      widget.onNavigateToNote!(ancestor.id);
+      return;
+    }
+
     if (_activeNoteIdsInStack.contains(ancestor.id)) {
       Navigator.of(context).popUntil((route) => route.settings.name == '/note/${ancestor.id}');
     } else {
@@ -270,6 +279,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   Future<void> _openPageBlockNote(String targetNoteId) async {
     await _saveCurrentChanges();
     if (!mounted) return;
+
+    if (widget.onNavigateToNote != null) {
+      widget.onNavigateToNote!(targetNoteId);
+      return;
+    }
 
     final deleted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -410,7 +424,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       _hasUnsavedChanges = false;
       await repo.deleteNote(_note!.id);
       if (mounted) {
-        Navigator.of(context).pop(true);
+        if (widget.onDeleted != null) {
+          widget.onDeleted!();
+        } else {
+          Navigator.of(context).pop(true);
+        }
       }
     }
   }
@@ -614,11 +632,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         appBar: AppBar(
           backgroundColor: context.appBg,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18.0),
-            color: context.appTextPrimary,
-            onPressed: () => Navigator.of(context).pop(),
-          ),
+          automaticallyImplyLeading: widget.onNavigateToNote == null,
+          leading: widget.onNavigateToNote == null
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18.0),
+                  color: context.appTextPrimary,
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
         ),
         body: Center(
           child: Text(
@@ -641,11 +662,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         appBar: AppBar(
           backgroundColor: context.appBg,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18.0),
-            color: context.appTextPrimary,
-            onPressed: _handleBack,
-          ),
+          automaticallyImplyLeading: widget.onNavigateToNote == null,
+          leading: widget.onNavigateToNote == null
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18.0),
+                  color: context.appTextPrimary,
+                  onPressed: _handleBack,
+                )
+              : null,
           centerTitle: false,
           actions: [
             TextButton(
@@ -716,6 +740,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 Padding(
                   padding: const EdgeInsets.only(left: 26.0),
                   child: TextField(
+                  key: const Key('note_title_field'),
                   controller: _titleController,
                   focusNode: _titleFocusNode,
                   autofocus: widget.initialNote?.title.isEmpty ?? false,

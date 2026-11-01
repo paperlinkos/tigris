@@ -4,24 +4,18 @@ import '../app/di/repository_scope.dart';
 import '../app/theme/context_theme_extensions.dart';
 import '../models/note.dart';
 import '../persistence/app_storage.dart';
-import '../controllers/theme_controller.dart';
-import '../repositories/offline_first_note_repository.dart';
-import '../services/auth_service.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/note_sync_engine.dart';
 import '../services/sync_coordinator.dart';
 import '../services/backup_service.dart';
 import '../services/drive_account.dart';
-import '../repositories/task_repository.dart';
-import '../views/tasks_view.dart';
 import '../app/theme/app_typography.dart';
+import '../repositories/task_repository.dart';
 import '../widgets/home/notes_tree_list.dart';
 import '../widgets/notes/note_action_menu.dart';
 import '../widgets/notes/note_peek_preview_dialog.dart';
 import 'note_detail_screen.dart';
-import 'review_session_screen.dart';
-import 'settings_screen.dart';
-import 'login_screen.dart';
+import '../widgets/home/home_more_menu.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onCreateNote;
@@ -55,13 +49,11 @@ class HomeScreenState extends State<HomeScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  late final TaskRepository _taskRepository;
   StreamSubscription<List<Note>>? _notesSubscription;
 
   @override
   void initState() {
     super.initState();
-    _taskRepository = LocalTaskRepository(storage: AppStorage.instance);
   }
 
   @override
@@ -178,73 +170,6 @@ class HomeScreenState extends State<HomeScreen> {
     );
     if (mounted) {
       await _loadData();
-    }
-  }
-
-  Future<void> _handleOpenSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => SettingsScreen(
-          syncService: widget.syncService,
-          syncEngine: widget.syncEngine,
-          syncCoordinator: widget.syncCoordinator,
-          backupService: widget.backupService,
-          driveAccount: widget.driveAccount,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _handleOpenReview() async {
-    if (widget.onStartReview != null) {
-      widget.onStartReview!();
-      return;
-    }
-
-    final repoScope = RepositoryScope.maybeOf(context);
-    if (repoScope == null) return;
-
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => RepositoryScope(
-          noteRepository: repoScope.noteRepository,
-          reviewRepository: repoScope.reviewRepository,
-          flashcardRepository: repoScope.flashcardRepository,
-          quizRepository: repoScope.quizRepository,
-          child: const ReviewSessionScreen(),
-        ),
-      ),
-    );
-    if (mounted) {
-      await _loadData();
-    }
-  }
-
-  Future<void> _handleOpenTasks() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: context.appBg,
-          appBar: AppBar(
-            backgroundColor: context.appBg,
-            title: Text(
-              'Tasks',
-              style: AppTypography.uiHeadline(color: context.appTextPrimary),
-            ),
-          ),
-          body: TasksView(taskRepository: _taskRepository, searchQuery: ''),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _handleSync() async {
-    final repo = RepositoryScope.maybeOf(context)?.noteRepository;
-    if (repo is OfflineFirstNoteRepository) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Syncing notes...')));
-      await repo.syncWithCloud();
     }
   }
 
@@ -416,7 +341,7 @@ class HomeScreenState extends State<HomeScreen> {
                               ListenableBuilder(
                                 listenable: widget.syncService!,
                                 builder: (context, _) => Text(
-                                  _syncStatusText(widget.syncService!.state),
+                                  syncStatusText(widget.syncService!.state),
                                   style: AppTypography.uiLabel(
                                     fontSize: 12.0,
                                     color: context.appTextSecondary,
@@ -507,72 +432,23 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMoreMenu() {
-    final themeController = ThemeControllerScope.maybeOf(context);
-    final auth = AuthService();
-    final signedOut = !auth.isAuthenticated;
-    return PopupMenuButton<String>(
-      key: const Key('home_more_menu'),
-      tooltip: 'More',
-      icon: Icon(Icons.more_horiz_rounded, color: context.appTextPrimary),
-      color: context.appSurface,
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10.0),
-        side: BorderSide(color: context.appBorder),
-      ),
-      onSelected: (value) {
-        switch (value) {
-          case 'review':
-            _handleOpenReview();
-          case 'tasks':
-            _handleOpenTasks();
-          case 'sync':
-            _handleSync();
-          case 'theme':
-            themeController?.toggleDarkMode();
-          case 'settings':
-            _handleOpenSettings();
-          case 'signin':
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => LoginScreen(authService: auth)),
-            );
-        }
-      },
-      itemBuilder: (context) => [
-        if (signedOut) _menuItem('signin', 'Sign in'),
-        _menuItem('review', 'Review'),
-        _menuItem('tasks', 'Tasks'),
-        _menuItem('sync', 'Sync notes'),
-        if (themeController != null)
-          _menuItem('theme', context.isDarkMode ? 'Light mode' : 'Dark mode'),
-        _menuItem('settings', 'Settings'),
-      ],
+    final actions = HomeMoreMenuActions(
+      context: context,
+      taskRepository: LocalTaskRepository(storage: AppStorage.instance),
+      syncService: widget.syncService,
+      syncEngine: widget.syncEngine,
+      syncCoordinator: widget.syncCoordinator,
+      backupService: widget.backupService,
+      driveAccount: widget.driveAccount,
+      onStartReview: widget.onStartReview,
     );
-  }
-
-  String _syncStatusText(SyncState state) => switch (state) {
-    SyncState.signedOut => 'On this device only',
-    SyncState.savedLocally => 'Saved on this device',
-    SyncState.syncing => 'Syncing...',
-    SyncState.synced => 'Synced',
-    SyncState.offline => 'Offline. Will sync when you reconnect.',
-    SyncState.accountMismatch =>
-      'Sync paused. These notes belong to another account.',
-    SyncState.error => "Couldn't sync. Will try again.",
-  };
-
-  PopupMenuItem<String> _menuItem(String value, String label) {
-    return PopupMenuItem<String>(
-      value: value,
-      height: 42.0,
-      child: Text(
-        label,
-        style: AppTypography.uiLabel(
-          fontSize: 14.0,
-          fontWeight: FontWeight.w400,
-          color: context.appTextPrimary,
-        ),
-      ),
+    return HomeMoreMenu(
+      onSignIn: actions.openSignIn,
+      onReview: actions.openReview,
+      onTasks: actions.openTasks,
+      onSync: actions.sync,
+      onTheme: actions.toggleTheme,
+      onSettings: actions.openSettings,
     );
   }
 }
