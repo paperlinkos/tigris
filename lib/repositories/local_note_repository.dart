@@ -6,7 +6,8 @@ import 'note_repository.dart';
 class LocalNoteRepository implements NoteRepository {
   static const String collection = 'notes';
   final StorageInterface _storage;
-  final StreamController<List<Note>> _notesController = StreamController<List<Note>>.broadcast();
+  final StreamController<List<Note>> _notesController =
+      StreamController<List<Note>>.broadcast();
 
   LocalNoteRepository({required StorageInterface storage}) : _storage = storage;
 
@@ -71,7 +72,8 @@ class LocalNoteRepository implements NoteRepository {
   @override
   Stream<List<Note>> watchRecentNotes({int limit = 10}) {
     return watchAllNotes().map((all) {
-      final sorted = List<Note>.from(all)..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      final sorted = List<Note>.from(all)
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       return sorted.take(limit).toList();
     });
   }
@@ -91,7 +93,8 @@ class LocalNoteRepository implements NoteRepository {
     final all = await getAllNotes();
     final matches = all.where((n) {
       final inTitle = n.title.toLowerCase().contains(clean);
-      final inSubtitle = n.subtitle != null && n.subtitle!.toLowerCase().contains(clean);
+      final inSubtitle =
+          n.subtitle != null && n.subtitle!.toLowerCase().contains(clean);
       final inContent = n.content.toLowerCase().contains(clean);
       return inTitle || inSubtitle || inContent;
     }).toList();
@@ -103,8 +106,10 @@ class LocalNoteRepository implements NoteRepository {
       if (aTitle && !bTitle) return -1;
       if (!aTitle && bTitle) return 1;
 
-      final aSub = a.subtitle != null && a.subtitle!.toLowerCase().contains(clean);
-      final bSub = b.subtitle != null && b.subtitle!.toLowerCase().contains(clean);
+      final aSub =
+          a.subtitle != null && a.subtitle!.toLowerCase().contains(clean);
+      final bSub =
+          b.subtitle != null && b.subtitle!.toLowerCase().contains(clean);
       if (aSub && !bSub) return -1;
       if (!aSub && bSub) return 1;
 
@@ -168,7 +173,9 @@ class LocalNoteRepository implements NoteRepository {
         final parent = Note.fromJson(parentData);
         if (parent.childrenIds.contains(id)) {
           final updatedParent = parent.copyWith(
-            childrenIds: parent.childrenIds.where((childId) => childId != id).toList(),
+            childrenIds: parent.childrenIds
+                .where((childId) => childId != id)
+                .toList(),
             updatedAt: DateTime.now(),
           );
           await _storage.set(collection, parent.id, updatedParent.toJson());
@@ -184,7 +191,10 @@ class LocalNoteRepository implements NoteRepository {
   static const String deletedCollection = 'deleted_notes';
 
   Future<void> recordDeletedNoteId(String id) async {
-    await _storage.set(deletedCollection, id, {'id': id, 'deletedAt': DateTime.now().toIso8601String()});
+    await _storage.set(deletedCollection, id, {
+      'id': id,
+      'deletedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<Set<String>> getDeletedNoteIds() async {
@@ -194,6 +204,20 @@ class LocalNoteRepository implements NoteRepository {
 
   Future<void> clearDeletedNoteId(String id) async {
     await _storage.delete(deletedCollection, id);
+  }
+
+  Future<void> applyRemoteNotes(List<Note> notes) async {
+    for (final note in notes) {
+      await _storage.set(collection, note.id, note.toJson());
+    }
+    await notifyChanged();
+  }
+
+  Future<void> applyRemoteDeletes(List<String> ids) async {
+    for (final id in ids) {
+      await _storage.delete(collection, id);
+    }
+    await notifyChanged();
   }
 
   Future<void> _deleteSubtree(String targetId) async {
@@ -207,7 +231,8 @@ class LocalNoteRepository implements NoteRepository {
       // Also delete any other notes pointing to targetId as parentId
       final all = await getAllNotes();
       for (final candidate in all) {
-        if (candidate.parentId == targetId && !note.childrenIds.contains(candidate.id)) {
+        if (candidate.parentId == targetId &&
+            !note.childrenIds.contains(candidate.id)) {
           await _deleteSubtree(candidate.id);
         }
       }
@@ -220,4 +245,3 @@ class LocalNoteRepository implements NoteRepository {
     _notesController.close();
   }
 }
-

@@ -8,11 +8,7 @@ class LoginScreen extends StatefulWidget {
   final AuthService? authService;
   final VoidCallback? onLoginSuccess;
 
-  const LoginScreen({
-    super.key,
-    this.authService,
-    this.onLoginSuccess,
-  });
+  const LoginScreen({super.key, this.authService, this.onLoginSuccess});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -77,7 +73,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (str.contains('email-already-in-use')) {
       return 'This email is already in use. Please sign in instead.';
     }
-    if (str.contains('wrong-password') || str.contains('user-not-found') || str.contains('invalid-credential')) {
+    if (str.contains('wrong-password') ||
+        str.contains('user-not-found') ||
+        str.contains('invalid-credential')) {
       return 'Invalid email or password.';
     }
     if (str.contains('weak-password')) {
@@ -152,18 +150,16 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 28.0,
+              vertical: 24.0,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Brand Logo Header
-                const Center(
-                  child: TigrisLogo(
-                    size: 56.0,
-                    showWordmark: true,
-                  ),
-                ),
+                const Center(child: TigrisLogo(size: 56.0, showWordmark: true)),
                 const SizedBox(height: 12.0),
                 Text(
                   'Your calm, offline-first personal learning space',
@@ -176,27 +172,31 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 36.0),
 
                 // Google Sign In Button
-                OutlinedButton(
+                ElevatedButton(
                   onPressed: _isLoading ? null : _handleGoogleSignIn,
-                  style: OutlinedButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14.0),
-                    side: BorderSide(color: context.appBorder, width: 1.2),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12.0),
                     ),
-                    backgroundColor: context.appSurface,
+                    backgroundColor: context.appTextPrimary,
+                    foregroundColor: context.appBg,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.g_mobiledata_rounded, size: 28.0, color: Color(0xFF4285F4)),
+                      const Icon(
+                        Icons.g_mobiledata_rounded,
+                        size: 28.0,
+                        color: Color(0xFF4285F4),
+                      ),
                       const SizedBox(width: 8.0),
                       Text(
                         'Continue with Google',
                         style: AppTypography.uiHeadline(
                           fontSize: 15.0,
                           fontWeight: FontWeight.w600,
-                          color: context.appTextPrimary,
+                          color: context.appBg,
                         ),
                       ),
                     ],
@@ -231,11 +231,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8.0),
-                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Text(
                       _errorMessage!,
-                      style: AppTypography.body(fontSize: 13.0, color: Colors.red),
+                      style: AppTypography.body(
+                        fontSize: 13.0,
+                        color: Colors.red,
+                      ),
                     ),
                   ),
                 ],
@@ -244,7 +249,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  style: AppTypography.body(fontSize: 15.0, color: context.appTextPrimary),
+                  style: AppTypography.body(
+                    fontSize: 15.0,
+                    color: context.appTextPrimary,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Email Address',
                     labelStyle: TextStyle(color: context.appTextSecondary),
@@ -262,7 +270,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
-                  style: AppTypography.body(fontSize: 15.0, color: context.appTextPrimary),
+                  style: AppTypography.body(
+                    fontSize: 15.0,
+                    color: context.appTextPrimary,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Password',
                     labelStyle: TextStyle(color: context.appTextSecondary),
@@ -346,7 +357,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(width: 4.0),
-                      Icon(Icons.arrow_forward_rounded, size: 16.0, color: context.appTextTertiary),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 16.0,
+                        color: context.appTextTertiary,
+                      ),
                     ],
                   ),
                 ),

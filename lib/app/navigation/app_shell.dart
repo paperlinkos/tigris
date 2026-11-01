@@ -15,6 +15,9 @@ import '../../repositories/review_repository.dart';
 import '../../screens/home_screen.dart';
 import '../../screens/note_detail_screen.dart';
 import '../../screens/review_session_screen.dart';
+import '../../services/cloud_sync_service.dart';
+import '../../services/note_sync_engine.dart';
+import '../../services/sync_coordinator.dart';
 
 class AppShell extends StatefulWidget {
   final StorageInterface? storage;
@@ -22,6 +25,9 @@ class AppShell extends StatefulWidget {
   final ReviewRepository? reviewRepository;
   final FlashcardRepository? flashcardRepository;
   final QuizRepository? quizRepository;
+  final CloudSyncService? syncService;
+  final NoteSyncEngine? syncEngine;
+  final SyncCoordinator? syncCoordinator;
 
   const AppShell({
     super.key,
@@ -30,6 +36,9 @@ class AppShell extends StatefulWidget {
     this.reviewRepository,
     this.flashcardRepository,
     this.quizRepository,
+    this.syncService,
+    this.syncEngine,
+    this.syncCoordinator,
   });
 
   @override
@@ -47,10 +56,15 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     final storage = widget.storage ?? AppStorage.instance;
-    _noteRepository = widget.noteRepository ?? LocalNoteRepository(storage: storage);
-    _reviewRepository = widget.reviewRepository ?? LocalReviewRepository(storage: storage);
-    _flashcardRepository = widget.flashcardRepository ?? LocalFlashcardRepository(storage: storage);
-    _quizRepository = widget.quizRepository ?? LocalQuizRepository(storage: storage);
+    _noteRepository =
+        widget.noteRepository ?? LocalNoteRepository(storage: storage);
+    _reviewRepository =
+        widget.reviewRepository ?? LocalReviewRepository(storage: storage);
+    _flashcardRepository =
+        widget.flashcardRepository ??
+        LocalFlashcardRepository(storage: storage);
+    _quizRepository =
+        widget.quizRepository ?? LocalQuizRepository(storage: storage);
   }
 
   Future<void> _handleCreateNote() async {
@@ -74,10 +88,7 @@ class _AppShellState extends State<AppShell> {
             reviewRepository: _reviewRepository,
             flashcardRepository: _flashcardRepository,
             quizRepository: _quizRepository,
-            child: NoteDetailScreen(
-              noteId: newNote.id,
-              initialNote: newNote,
-            ),
+            child: NoteDetailScreen(noteId: newNote.id, initialNote: newNote),
           ),
         ),
       );
@@ -97,6 +108,9 @@ class _AppShellState extends State<AppShell> {
         body: HomeScreen(
           key: _homeKey,
           onCreateNote: _handleCreateNote,
+          syncService: widget.syncService,
+          syncEngine: widget.syncEngine,
+          syncCoordinator: widget.syncCoordinator,
           onStartReview: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(

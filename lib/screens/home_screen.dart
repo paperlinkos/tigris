@@ -6,6 +6,10 @@ import '../models/note.dart';
 import '../persistence/app_storage.dart';
 import '../controllers/theme_controller.dart';
 import '../repositories/offline_first_note_repository.dart';
+import '../services/auth_service.dart';
+import '../services/cloud_sync_service.dart';
+import '../services/note_sync_engine.dart';
+import '../services/sync_coordinator.dart';
 import '../repositories/task_repository.dart';
 import '../views/tasks_view.dart';
 import '../app/theme/app_typography.dart';
@@ -15,17 +19,24 @@ import '../widgets/notes/note_peek_preview_dialog.dart';
 import 'note_detail_screen.dart';
 import 'review_session_screen.dart';
 import 'settings_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onCreateNote;
   final VoidCallback? onStartReview;
   final ValueChanged<Note>? onOpenNote;
+  final CloudSyncService? syncService;
+  final NoteSyncEngine? syncEngine;
+  final SyncCoordinator? syncCoordinator;
 
   const HomeScreen({
     super.key,
     this.onCreateNote,
     this.onStartReview,
     this.onOpenNote,
+    this.syncService,
+    this.syncEngine,
+    this.syncCoordinator,
   });
 
   @override
@@ -74,19 +85,22 @@ class HomeScreenState extends State<HomeScreen> {
     }
 
     _notesSubscription?.cancel();
-    _notesSubscription = repoScope.noteRepository.watchAllNotes().listen((allNotes) {
-      if (!mounted) return;
-      setState(() {
-        _allNotes = allNotes;
-        _isLoading = false;
-      });
-    }, onError: (_) {
-      if (mounted) {
+    _notesSubscription = repoScope.noteRepository.watchAllNotes().listen(
+      (allNotes) {
+        if (!mounted) return;
         setState(() {
+          _allNotes = allNotes;
           _isLoading = false;
         });
-      }
-    });
+      },
+      onError: (_) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      },
+    );
   }
 
   Future<void> _loadData() async {
@@ -133,10 +147,8 @@ class HomeScreenState extends State<HomeScreen> {
       await Navigator.of(context).push(
         MaterialPageRoute(
           settings: RouteSettings(name: '/note/${note.id}'),
-          builder: (context) => NoteDetailScreen(
-            noteId: note.id,
-            initialNote: note,
-          ),
+          builder: (context) =>
+              NoteDetailScreen(noteId: note.id, initialNote: note),
         ),
       );
       if (mounted) {
@@ -154,10 +166,8 @@ class HomeScreenState extends State<HomeScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         settings: RouteSettings(name: '/note/${note.id}'),
-        builder: (context) => NoteDetailScreen(
-          noteId: note.id,
-          initialNote: note,
-        ),
+        builder: (context) =>
+            NoteDetailScreen(noteId: note.id, initialNote: note),
       ),
     );
     if (mounted) {
@@ -168,7 +178,11 @@ class HomeScreenState extends State<HomeScreen> {
   Future<void> _handleOpenSettings() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => const SettingsScreen(),
+        builder: (context) => SettingsScreen(
+          syncService: widget.syncService,
+          syncEngine: widget.syncEngine,
+          syncCoordinator: widget.syncCoordinator,
+        ),
       ),
     );
   }
@@ -205,7 +219,10 @@ class HomeScreenState extends State<HomeScreen> {
           backgroundColor: context.appBg,
           appBar: AppBar(
             backgroundColor: context.appBg,
-            title: Text('Tasks', style: AppTypography.uiHeadline(color: context.appTextPrimary)),
+            title: Text(
+              'Tasks',
+              style: AppTypography.uiHeadline(color: context.appTextPrimary),
+            ),
           ),
           body: TasksView(taskRepository: _taskRepository, searchQuery: ''),
         ),
@@ -216,9 +233,9 @@ class HomeScreenState extends State<HomeScreen> {
   Future<void> _handleSync() async {
     final repo = RepositoryScope.maybeOf(context)?.noteRepository;
     if (repo is OfflineFirstNoteRepository) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Syncing notes...')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Syncing notes...')));
       await repo.syncWithCloud();
     }
   }
@@ -254,7 +271,9 @@ class HomeScreenState extends State<HomeScreen> {
     final repoScope = RepositoryScope.maybeOf(context);
     if (repoScope == null) return;
 
-    final titlePrefix = note.title.isNotEmpty ? '${note.title} (Copy)' : 'Untitled (Copy)';
+    final titlePrefix = note.title.isNotEmpty
+        ? '${note.title} (Copy)'
+        : 'Untitled (Copy)';
     final duplicate = Note(
       id: 'note_${DateTime.now().millisecondsSinceEpoch}',
       parentId: note.parentId,
@@ -294,7 +313,10 @@ class HomeScreenState extends State<HomeScreen> {
             color: context.appTextSecondary,
           ),
         ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: 16.0,
+          vertical: 12.0,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -341,9 +363,7 @@ class HomeScreenState extends State<HomeScreen> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: context.appBg,
-        body: const Center(
-          child: SizedBox.shrink(),
-        ),
+        body: const Center(child: SizedBox.shrink()),
       );
     }
 
@@ -367,13 +387,35 @@ class HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(left: 20.0, right: 8.0, top: 12.0),
+                  padding: const EdgeInsets.only(
+                    left: 20.0,
+                    right: 8.0,
+                    top: 12.0,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          'Notes',
-                          style: AppTypography.display(color: context.appTextPrimary),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Notes',
+                              style: AppTypography.display(
+                                color: context.appTextPrimary,
+                              ),
+                            ),
+                            if (widget.syncService != null)
+                              ListenableBuilder(
+                                listenable: widget.syncService!,
+                                builder: (context, _) => Text(
+                                  _syncStatusText(widget.syncService!.state),
+                                  style: AppTypography.uiLabel(
+                                    fontSize: 12.0,
+                                    color: context.appTextSecondary,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       _buildMoreMenu(),
@@ -411,7 +453,11 @@ class HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.search_rounded, size: 18.0, color: context.appTextSecondary),
+          Icon(
+            Icons.search_rounded,
+            size: 18.0,
+            color: context.appTextSecondary,
+          ),
           const SizedBox(width: 8.0),
           Expanded(
             child: TextField(
@@ -441,7 +487,11 @@ class HomeScreenState extends State<HomeScreen> {
                 _searchController.clear();
                 setState(() => _searchQuery = '');
               },
-              child: Icon(Icons.cancel_rounded, size: 16.0, color: context.appTextTertiary),
+              child: Icon(
+                Icons.cancel_rounded,
+                size: 16.0,
+                color: context.appTextTertiary,
+              ),
             ),
         ],
       ),
@@ -450,6 +500,8 @@ class HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMoreMenu() {
     final themeController = ThemeControllerScope.maybeOf(context);
+    final auth = AuthService();
+    final signedOut = !auth.isAuthenticated;
     return PopupMenuButton<String>(
       key: const Key('home_more_menu'),
       tooltip: 'More',
@@ -472,9 +524,14 @@ class HomeScreenState extends State<HomeScreen> {
             themeController?.toggleDarkMode();
           case 'settings':
             _handleOpenSettings();
+          case 'signin':
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => LoginScreen(authService: auth)),
+            );
         }
       },
       itemBuilder: (context) => [
+        if (signedOut) _menuItem('signin', 'Sign in'),
         _menuItem('review', 'Review'),
         _menuItem('tasks', 'Tasks'),
         _menuItem('sync', 'Sync notes'),
@@ -484,6 +541,17 @@ class HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+
+  String _syncStatusText(SyncState state) => switch (state) {
+    SyncState.signedOut => 'On this device only',
+    SyncState.savedLocally => 'Saved on this device',
+    SyncState.syncing => 'Syncing...',
+    SyncState.synced => 'Synced',
+    SyncState.offline => 'Offline. Will sync when you reconnect.',
+    SyncState.accountMismatch =>
+      'Sync paused. These notes belong to another account.',
+    SyncState.error => "Couldn't sync. Will try again.",
+  };
 
   PopupMenuItem<String> _menuItem(String value, String label) {
     return PopupMenuItem<String>(

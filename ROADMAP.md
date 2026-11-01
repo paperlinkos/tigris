@@ -19,15 +19,16 @@ Built in this order, so each step rests on something solid.
 
 ## 2. Log in, work offline, sync
 
-Firebase login and sync already exist. This step makes them dependable.
+Built and covered by automated tests with a simulated cloud. Not yet run
+against real Firebase with a real account.
 
-- [ ] Clear login screen, with Google as the main option
-- [ ] Show a quiet status: saved on this device, syncing, synced, offline
-- [ ] Sync as soon as the internet returns, not only on a 30-second timer
-- [ ] Download only what changed, instead of every note on each sync
-- [ ] Keep both versions if the same note was edited on two devices offline
-- [ ] Keep one account's notes out of another account after signing out
-- [ ] Test it: edit offline on two devices, reconnect, lose nothing
+- [x] Clear login screen, with Google as the main option
+- [x] Show a quiet status: saved on this device, syncing, synced, offline
+- [x] Sync as soon as the internet returns, not only on a 30-second timer
+- [x] Download only what changed, instead of every note on each sync
+- [x] Keep both versions if the same note was edited on two devices offline
+- [x] Keep one account's notes out of another account after signing out
+- [ ] Test it with a real account: edit offline on two devices, reconnect, lose nothing
 
 ## 3. Backup to Google Drive
 

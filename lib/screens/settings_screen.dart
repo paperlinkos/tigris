@@ -5,6 +5,9 @@ import '../app/theme/context_theme_extensions.dart';
 import '../controllers/theme_controller.dart';
 import '../repositories/offline_first_note_repository.dart';
 import '../services/auth_service.dart';
+import '../services/cloud_sync_service.dart';
+import '../services/note_sync_engine.dart';
+import '../services/sync_coordinator.dart';
 import '../widgets/calm_scaffold.dart';
 import 'glossary_screen.dart';
 import 'login_screen.dart';
@@ -12,10 +15,16 @@ import 'notion_import_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   final AuthService? authService;
+  final CloudSyncService? syncService;
+  final NoteSyncEngine? syncEngine;
+  final SyncCoordinator? syncCoordinator;
 
   const SettingsScreen({
     super.key,
     this.authService,
+    this.syncService,
+    this.syncEngine,
+    this.syncCoordinator,
   });
 
   @override
@@ -66,7 +75,9 @@ class SettingsScreen extends StatelessWidget {
                       backgroundColor: context.appSurfaceSubtle,
                       radius: 20.0,
                       child: Icon(
-                        isGuest ? Icons.person_outline_rounded : Icons.account_circle_rounded,
+                        isGuest
+                            ? Icons.person_outline_rounded
+                            : Icons.account_circle_rounded,
                         color: context.appTextPrimary,
                       ),
                     ),
@@ -76,7 +87,11 @@ class SettingsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isGuest ? 'Guest User (Offline Mode)' : (user.displayName ?? user.email ?? 'Signed In'),
+                            isGuest
+                                ? 'Not signed in'
+                                : (user.displayName ??
+                                      user.email ??
+                                      'Signed In'),
                             style: AppTypography.uiHeadline(
                               fontSize: 15.0,
                               fontWeight: FontWeight.w600,
@@ -85,7 +100,9 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 2.0),
                           Text(
-                            isGuest ? 'Notes save locally. Sign in to backup to cloud.' : (user.email ?? 'Cloud sync active'),
+                            isGuest
+                                ? 'Notes stay on this device. Sign in to sync them.'
+                                : (user.email ?? 'Cloud sync active'),
                             style: AppTypography.uiLabel(
                               fontSize: 12.0,
                               color: context.appTextSecondary,
@@ -98,13 +115,43 @@ class SettingsScreen extends StatelessWidget {
                       onPressed: () async {
                         if (isGuest) {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => LoginScreen(authService: auth)),
+                            MaterialPageRoute(
+                              builder: (_) => LoginScreen(authService: auth),
+                            ),
                           );
                         } else {
+                          if (syncEngine != null &&
+                              await syncEngine!.pendingChangeCount() > 0) {
+                            if (!context.mounted) return;
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                title: const Text('Sign out?'),
+                                content: const Text(
+                                  "Some changes haven't synced yet. They'll stay on this device and sync when you sign back in.",
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(true),
+                                    child: const Text('Sign out'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm != true) return;
+                          }
                           await auth.signOut();
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Signed out successfully')),
+                              const SnackBar(
+                                content: Text('Signed out successfully'),
+                              ),
                             );
                           }
                         }
@@ -114,7 +161,9 @@ class SettingsScreen extends StatelessWidget {
                         style: AppTypography.uiLabel(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w600,
-                          color: isGuest ? context.appTextPrimary : Colors.redAccent,
+                          color: isGuest
+                              ? context.appTextPrimary
+                              : Colors.redAccent,
                         ),
                       ),
                     ),
@@ -140,7 +189,9 @@ class SettingsScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  auth.hasPasswordProvider ? 'Change Account Password' : 'Set Account Password',
+                                  auth.hasPasswordProvider
+                                      ? 'Change Account Password'
+                                      : 'Set Account Password',
                                   style: AppTypography.uiHeadline(
                                     fontSize: 14.0,
                                     fontWeight: FontWeight.w500,
@@ -170,6 +221,33 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (syncService != null)
+                  ListenableBuilder(
+                    listenable: syncService!,
+                    builder: (context, _) {
+                      if (syncService!.state != SyncState.accountMismatch) {
+                        return const SizedBox.shrink();
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Divider(color: context.appBorderSubtle, height: 24.0),
+                          Text(
+                            'The notes on this device belong to another account, so sync is paused.',
+                            style: AppTypography.uiLabel(
+                              fontSize: 12.0,
+                              color: context.appTextSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8.0),
+                          TextButton(
+                            onPressed: () => _replaceLocalNotes(context, auth),
+                            child: const Text("Use this account's notes"),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
               ],
             ),
           ),
@@ -243,7 +321,13 @@ class SettingsScreen extends StatelessWidget {
                 await repo.syncWithCloud();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Cloud sync complete! All notes up to date.')),
+                    SnackBar(
+                      content: Text(
+                        syncService?.state == SyncState.synced
+                            ? 'Your notes are up to date.'
+                            : "Notes didn't sync. They're safe on this device.",
+                      ),
+                    ),
                   );
                 }
               } else {
@@ -262,7 +346,9 @@ class SettingsScreen extends StatelessWidget {
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('AI is securely connected via Firebase Cloud Functions.'),
+                  content: Text(
+                    'AI is securely connected via Firebase Cloud Functions.',
+                  ),
                 ),
               );
             },
@@ -274,9 +360,9 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Manage ministry terms (HEZP, ROR, PC) & custom acronyms',
             icon: Icons.menu_book_outlined,
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const GlossaryScreen()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const GlossaryScreen()));
             },
           ),
           Divider(color: context.appBorderSubtle),
@@ -294,6 +380,35 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _replaceLocalNotes(
+    BuildContext context,
+    AuthService auth,
+  ) async {
+    final uid = auth.currentUser?.uid;
+    if (uid == null || syncEngine == null) return;
+    final replace = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Replace notes on this device?'),
+        content: const Text(
+          "This removes the notes on this device, including any that haven't synced, and downloads this account's notes.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Replace'),
+          ),
+        ],
+      ),
+    );
+    if (replace == true) await syncEngine!.replaceLocalWithAccount(uid);
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
@@ -436,10 +551,16 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.lock_outline_rounded, color: context.appTextPrimary, size: 22.0),
+                        Icon(
+                          Icons.lock_outline_rounded,
+                          color: context.appTextPrimary,
+                          size: 22.0,
+                        ),
                         const SizedBox(width: 10.0),
                         Text(
-                          auth.hasPasswordProvider ? 'Change Password' : 'Set Account Password',
+                          auth.hasPasswordProvider
+                              ? 'Change Password'
+                              : 'Set Account Password',
                           style: AppTypography.uiHeadline(
                             fontSize: 18.0,
                             fontWeight: FontWeight.w600,
@@ -468,7 +589,10 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         child: Text(
                           errorText!,
-                          style: const TextStyle(color: Colors.redAccent, fontSize: 13.0),
+                          style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 13.0,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14.0),
@@ -482,11 +606,14 @@ class SettingsScreen extends StatelessWidget {
                         labelStyle: TextStyle(color: context.appTextSecondary),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            obscure
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                             color: context.appTextSecondary,
                             size: 20.0,
                           ),
-                          onPressed: () => setModalState(() => obscure = !obscure),
+                          onPressed: () =>
+                              setModalState(() => obscure = !obscure),
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10.0),
@@ -537,7 +664,9 @@ class SettingsScreen extends StatelessWidget {
                                 errorText = null;
                               });
                               try {
-                                await auth.setOrUpdatePassword(passwordController.text.trim());
+                                await auth.setOrUpdatePassword(
+                                  passwordController.text.trim(),
+                                );
                                 if (ctx.mounted) {
                                   Navigator.of(ctx).pop();
                                 }
@@ -555,9 +684,13 @@ class SettingsScreen extends StatelessWidget {
                               } catch (e) {
                                 setModalState(() {
                                   isLoading = false;
-                                  final msg = e.toString().replaceFirst('Exception: ', '');
+                                  final msg = e.toString().replaceFirst(
+                                    'Exception: ',
+                                    '',
+                                  );
                                   if (msg.contains('requires-recent-login')) {
-                                    errorText = 'Please sign out and sign back in with Google before setting a password.';
+                                    errorText =
+                                        'Please sign out and sign back in with Google before setting a password.';
                                   } else {
                                     errorText = msg;
                                   }
@@ -568,11 +701,18 @@ class SettingsScreen extends StatelessWidget {
                           ? const SizedBox(
                               height: 18.0,
                               width: 18.0,
-                              child: CircularProgressIndicator(strokeWidth: 2.0),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.0,
+                              ),
                             )
                           : Text(
-                              auth.hasPasswordProvider ? 'Update Password' : 'Save Password',
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15.0),
+                              auth.hasPasswordProvider
+                                  ? 'Update Password'
+                                  : 'Save Password',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15.0,
+                              ),
                             ),
                     ),
                   ],

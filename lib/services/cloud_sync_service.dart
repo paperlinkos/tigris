@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 enum SyncState {
+  signedOut,
   savedLocally,
   syncing,
   synced,
   offline,
   error,
+  accountMismatch,
 }
 
 class CloudSyncService extends ChangeNotifier {
@@ -19,6 +21,18 @@ class CloudSyncService extends ChangeNotifier {
 
   void setSyncing() {
     _state = SyncState.syncing;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void setSignedOut() {
+    _state = SyncState.signedOut;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void setAccountMismatch() {
+    _state = SyncState.accountMismatch;
     _errorMessage = null;
     notifyListeners();
   }
