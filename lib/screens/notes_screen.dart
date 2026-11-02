@@ -7,6 +7,7 @@ import '../repositories/note_repository.dart';
 import '../widgets/calm_scaffold.dart';
 import '../widgets/notes/note_list_item.dart';
 import 'note_detail_screen.dart';
+import '../services/idea_brief.dart';
 
 class NotesScreen extends StatefulWidget {
   final NoteRepository? noteRepository;
@@ -55,7 +56,7 @@ class _NotesScreenState extends State<NotesScreen> {
       return;
     }
 
-    final notes = await repo.getRootNotes();
+    final notes = inWorkspace(await repo.getRootNotes(), Note.notesWorkspace);
     if (mounted) {
       setState(() {
         _rootNotes = notes;
@@ -83,7 +84,7 @@ class _NotesScreenState extends State<NotesScreen> {
     final repo = _repo;
     if (repo == null) return;
 
-    final results = await repo.searchNotes(query);
+    final results = inWorkspace(await repo.searchNotes(query), Note.notesWorkspace);
     if (mounted && _searchController.text.trim() == query) {
       setState(() {
         _isSearching = true;

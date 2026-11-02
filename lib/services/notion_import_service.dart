@@ -512,6 +512,7 @@ class NotionImportService {
       childrenIds: createdChildIds,
       createdAt: now,
       updatedAt: updatedAt,
+      workspace: Note.notesWorkspace,
     );
 
     await noteRepository.saveNote(note);

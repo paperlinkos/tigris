@@ -64,13 +64,14 @@ class _PageBlockPickerSheetState extends State<PageBlockPickerSheet> {
 
     if (title != null && title.isNotEmpty && mounted) {
       final now = DateTime.now();
+      final parentId = widget.currentNoteId.isNotEmpty ? widget.currentNoteId : widget.parentStreamId;
+      final parent = parentId == null ? null : await repo.getNote(parentId);
       final newNote = Note(
         id: 'note_${now.millisecondsSinceEpoch}',
         title: title,
         content: '',
-        parentId: widget.currentNoteId.isNotEmpty
-            ? widget.currentNoteId
-            : widget.parentStreamId,
+        parentId: parentId,
+        workspace: parent?.workspace ?? Note.notesWorkspace,
         createdAt: now,
         updatedAt: now,
       );
@@ -153,6 +154,7 @@ class _PageBlockPickerSheetState extends State<PageBlockPickerSheet> {
                           }
                           final notes = snapshot.data!
                               .where((n) => n.id != widget.currentNoteId)
+                              .where((n) => n.workspace == Note.notesWorkspace)
                               .where((n) =>
                                   _searchQuery.isEmpty ||
                                   n.title.toLowerCase().contains(_searchQuery) ||

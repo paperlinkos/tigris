@@ -11,6 +11,19 @@ Note _note(String id, String title, {String content = '', String? parentId}) => 
 Widget _tree(List<Note> notes, {bool compact = false, String? selected}) => MaterialApp(theme: AppTheme.lightTheme, home: Scaffold(body: NotesTreeList(notes: notes, searchQuery: '', compact: compact, selectedNoteId: selected, onCreateNote: () {}, onOpenNote: (_) {}, onNoteMenu: (note, position) {})));
 
 void main() {
+  testWidgets('initial expanded ids show nested rows and report expansion changes', (tester) async {
+    final notes = [_note('root', 'Root'), _note('child', 'Child', parentId: 'root'), _note('deep', 'Deep', parentId: 'child')];
+    final changes = <Set<String>>[];
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: Scaffold(body: NotesTreeList(notes: notes, searchQuery: '', compact: true, selectedNoteId: null, initialExpandedIds: const {'root'}, onExpandedChanged: changes.add, onCreateNote: () {}, onOpenNote: (_) {}))));
+    expect(find.text('Child'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.chevron_right_rounded));
+    await tester.pump();
+    expect(changes.last, containsAll(<String>['root', 'child']));
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: Scaffold(body: NotesTreeList(notes: notes, searchQuery: '', compact: true, selectedNoteId: 'deep', onExpandedChanged: changes.add, onCreateNote: () {}, onOpenNote: (_) {}))));
+    await tester.pump();
+    expect(changes.last, containsAll(<String>['root', 'child']));
+  });
+
   testWidgets('compact hides dates and previews, and non-compact shows them', (tester) async {
     final note = _note('one', 'Title', content: 'Preview text');
     await tester.pumpWidget(_tree([note], compact: true));

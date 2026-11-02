@@ -11,6 +11,7 @@ import '../services/sync_coordinator.dart';
 import '../services/backup_service.dart';
 import '../services/drive_account.dart';
 import '../widgets/calm_scaffold.dart';
+import '../widgets/desktop_panel.dart';
 import 'glossary_screen.dart';
 import 'login_screen.dart';
 import 'notion_import_screen.dart';
@@ -121,10 +122,11 @@ class SettingsScreen extends StatelessWidget {
                     TextButton(
                       onPressed: () async {
                         if (isGuest) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => LoginScreen(authService: auth),
-                            ),
+                          openScreen(
+                            context,
+                            (_) => LoginScreen(authService: auth),
+                            width: 420,
+                            height: 640,
                           );
                         } else {
                           if (syncEngine != null &&
@@ -320,11 +322,26 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Keep a copy of your notes in your own Drive',
             icon: Icons.backup_outlined,
             onTap: () {
-              if (!DriveAccount.isSupported || backupService == null || driveAccount == null) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Drive backup isn't available on this device yet.")));
+              if (!DriveAccount.isSupported ||
+                  backupService == null ||
+                  driveAccount == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      "Drive backup isn't available on this device yet.",
+                    ),
+                  ),
+                );
                 return;
               }
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => BackupScreen(service: backupService!, account: driveAccount!)));
+              openScreen(
+                context,
+                (_) => BackupScreen(
+                  service: backupService!,
+                  account: driveAccount!,
+                ),
+                height: 640,
+              );
             },
           ),
           Divider(color: context.appBorderSubtle),
@@ -381,9 +398,7 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Manage ministry terms (HEZP, ROR, PC) & custom acronyms',
             icon: Icons.menu_book_outlined,
             onTap: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const GlossaryScreen()));
+              openScreen(context, (_) => const GlossaryScreen());
             },
           ),
           Divider(color: context.appBorderSubtle),
@@ -393,9 +408,7 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Convert Notion workspace pages into native notes',
             icon: Icons.import_export_rounded,
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const NotionImportScreen()),
-              );
+              openScreen(context, (_) => const NotionImportScreen());
             },
           ),
         ],

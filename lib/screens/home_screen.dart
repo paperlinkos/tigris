@@ -16,6 +16,8 @@ import '../widgets/notes/note_action_menu.dart';
 import '../widgets/notes/note_peek_preview_dialog.dart';
 import 'note_detail_screen.dart';
 import '../widgets/home/home_more_menu.dart';
+import '../widgets/ideas/workspace_switch.dart';
+import '../services/idea_brief.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onCreateNote;
@@ -50,6 +52,10 @@ class HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   StreamSubscription<List<Note>>? _notesSubscription;
+  String _workspace = Note.notesWorkspace;
+  final Map<String, String> _queries = {Note.notesWorkspace: '', Note.ideasWorkspace: ''};
+
+  List<Note> get _workspaceNotes => inWorkspace(_allNotes, _workspace);
 
   @override
   void initState() {
@@ -123,7 +129,7 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleCreateNote() async {
-    if (widget.onCreateNote != null) {
+    if (_workspace == Note.notesWorkspace && widget.onCreateNote != null) {
       widget.onCreateNote!();
       return;
     }
@@ -137,6 +143,8 @@ class HomeScreenState extends State<HomeScreen> {
       content: '',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      workspace: _workspace,
+      ideaStatus: _workspace == Note.ideasWorkspace ? 'Spark' : null,
     );
 
     await repoScope.noteRepository.saveNote(note);
@@ -215,6 +223,10 @@ class HomeScreenState extends State<HomeScreen> {
       formatting: note.formatting,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      workspace: note.workspace,
+      ideaStatus: note.ideaStatus,
+      handedOffTo: note.handedOffTo,
+      handedOffAt: note.handedOffAt,
     );
 
     await repoScope.noteRepository.saveNote(duplicate);
@@ -332,7 +344,7 @@ class HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Notes',
+                              _workspace == Note.ideasWorkspace ? 'Ideas' : 'Notes',
                               style: AppTypography.display(
                                 color: context.appTextPrimary,
                               ),
@@ -356,16 +368,29 @@ class HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 Padding(
+                  padding: const EdgeInsets.fromLTRB(20.0, 4.0, 20.0, 4.0),
+                  child: WorkspaceSwitch(
+                    workspace: _workspace,
+                    onChanged: (workspace) => setState(() {
+                      _queries[_workspace] = _searchQuery;
+                      _workspace = workspace;
+                      _searchQuery = _queries[workspace] ?? '';
+                      _searchController.text = _searchQuery;
+                    }),
+                  ),
+                ),
+                Padding(
                   padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 8.0),
                   child: _buildSearchField(),
                 ),
                 Expanded(
                   child: NotesTreeList(
-                    notes: _allNotes,
+                    notes: _workspaceNotes,
                     searchQuery: _searchQuery,
                     onCreateNote: _handleCreateNote,
                     onOpenNote: _handleOpenNote,
                     onLongPressNote: _showNoteActionMenu,
+                    ideas: _workspace == Note.ideasWorkspace,
                   ),
                 ),
               ],
@@ -403,7 +428,7 @@ class HomeScreenState extends State<HomeScreen> {
                 color: context.appTextPrimary,
               ),
               decoration: InputDecoration(
-                hintText: 'Search',
+                hintText: _workspace == Note.ideasWorkspace ? 'Search ideas' : 'Search',
                 hintStyle: AppTypography.uiLabel(
                   fontSize: 15.0,
                   fontWeight: FontWeight.w400,

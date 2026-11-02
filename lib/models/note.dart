@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'note_block.dart';
 
 class Note {
+  static const String notesWorkspace = 'notes';
+  static const String ideasWorkspace = 'ideas';
+  static const List<String> ideaStatuses = [
+    'Spark', 'Exploring', 'Ready', 'Handed off', 'Done', 'Parked',
+  ];
   final String id;
   final String title;
   final String? subtitle;
@@ -16,6 +21,10 @@ class Note {
   final List<String> tags;
   final bool isKeepOffline;
   final DateTime? offlineUntil;
+  final String workspace;
+  final String? ideaStatus;
+  final String? handedOffTo;
+  final DateTime? handedOffAt;
 
   const Note({
     required this.id,
@@ -32,6 +41,10 @@ class Note {
     this.tags = const [],
     this.isKeepOffline = true,
     this.offlineUntil,
+    this.workspace = notesWorkspace,
+    this.ideaStatus,
+    this.handedOffTo,
+    this.handedOffAt,
   });
 
   bool get isOfflineAvailable =>
@@ -39,6 +52,7 @@ class Note {
 
   bool get isRoot => parentId == null;
   bool get hasChildren => childrenIds.isNotEmpty;
+  bool get isIdea => workspace == ideasWorkspace;
 
   /// Returns parsed blocks. Auto-migrates legacy content if `blocksJson` is absent.
   List<NoteBlock> get blocks {
@@ -126,6 +140,10 @@ class Note {
     List<String>? tags,
     bool? isKeepOffline,
     DateTime? offlineUntil,
+    String? workspace,
+    String? ideaStatus,
+    String? handedOffTo,
+    DateTime? handedOffAt,
   }) {
     return Note(
       id: id ?? this.id,
@@ -142,6 +160,10 @@ class Note {
       tags: tags ?? this.tags,
       isKeepOffline: isKeepOffline ?? this.isKeepOffline,
       offlineUntil: offlineUntil ?? this.offlineUntil,
+      workspace: workspace ?? this.workspace,
+      ideaStatus: ideaStatus ?? this.ideaStatus,
+      handedOffTo: handedOffTo ?? this.handedOffTo,
+      handedOffAt: handedOffAt ?? this.handedOffAt,
     );
   }
 
@@ -161,6 +183,10 @@ class Note {
       'tags': tags,
       'isKeepOffline': isKeepOffline,
       if (offlineUntil != null) 'offlineUntil': offlineUntil!.toIso8601String(),
+      if (workspace != notesWorkspace) 'workspace': workspace,
+      if (ideaStatus != null) 'ideaStatus': ideaStatus,
+      if (handedOffTo != null) 'handedOffTo': handedOffTo,
+      if (handedOffAt != null) 'handedOffAt': handedOffAt!.toIso8601String(),
     };
   }
 
@@ -181,6 +207,14 @@ class Note {
       isKeepOffline: json['isKeepOffline'] as bool? ?? true,
       offlineUntil: json['offlineUntil'] != null
           ? DateTime.parse(json['offlineUntil'] as String)
+          : null,
+      workspace: json['workspace'] == ideasWorkspace ? ideasWorkspace : notesWorkspace,
+      ideaStatus: ideaStatuses.contains(json['ideaStatus'])
+          ? json['ideaStatus'] as String
+          : null,
+      handedOffTo: json['handedOffTo'] as String?,
+      handedOffAt: json['handedOffAt'] != null
+          ? DateTime.parse(json['handedOffAt'] as String)
           : null,
     );
   }

@@ -190,7 +190,8 @@ void main() {
 
       // Verify AppShell loaded with compose button and Notes title
       expect(find.byKey(const Key('new_note_button')), findsOneWidget);
-      expect(find.text('Notes'), findsOneWidget);
+      // The title and the Notes | Ideas switch both say Notes.
+      expect(find.text('Notes'), findsNWidgets(2));
 
       // Create a note and a due review
       final note = Note(

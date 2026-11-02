@@ -20,7 +20,7 @@ Future<OfflineFirstNoteRepository> _pump(WidgetTester tester, List<Note> notes) 
   addTearDown(tester.view.reset);
   final repo = OfflineFirstNoteRepository(localRepo: LocalNoteRepository(storage: InMemoryStorage()));
   for (final note in notes) { await repo.saveNote(note); }
-  await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(noteRepository: repo)));
+  await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(storage: InMemoryStorage(), noteRepository: repo)));
   await tester.pumpAndSettle();
   return repo;
 }

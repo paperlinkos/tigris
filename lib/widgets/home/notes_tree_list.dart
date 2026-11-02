@@ -15,6 +15,9 @@ class NotesTreeList extends StatefulWidget {
   final void Function(Note note, Offset globalPosition)? onNoteMenu;
   final bool compact;
   final String? selectedNoteId;
+  final Set<String>? initialExpandedIds;
+  final ValueChanged<Set<String>>? onExpandedChanged;
+  final bool ideas;
 
   const NotesTreeList({
     super.key,
@@ -26,6 +29,9 @@ class NotesTreeList extends StatefulWidget {
     this.onNoteMenu,
     this.compact = false,
     this.selectedNoteId,
+    this.initialExpandedIds,
+    this.onExpandedChanged,
+    this.ideas = false,
   });
 
   /// Notes matching [query], in the same most-recent-first order as search.
@@ -52,13 +58,15 @@ class _NotesTreeListState extends State<NotesTreeList> {
   @override
   void initState() {
     super.initState();
+    _expandedIds.addAll(widget.initialExpandedIds ?? const <String>{});
     _expandSelectedAncestors();
   }
 
   @override
   void didUpdateWidget(covariant NotesTreeList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.selectedNoteId != oldWidget.selectedNoteId || widget.notes != oldWidget.notes) {
+    if (widget.selectedNoteId != oldWidget.selectedNoteId ||
+        widget.notes != oldWidget.notes) {
       _expandSelectedAncestors();
     }
   }
@@ -68,10 +76,19 @@ class _NotesTreeListState extends State<NotesTreeList> {
     if (selectedId == null) return;
     final byId = {for (final note in widget.notes) note.id: note};
     var parentId = byId[selectedId]?.parentId;
+    var changed = false;
     while (parentId != null) {
-      _expandedIds.add(parentId);
+      changed = _expandedIds.add(parentId) || changed;
       parentId = byId[parentId]?.parentId;
     }
+    if (changed) widget.onExpandedChanged?.call(Set<String>.from(_expandedIds));
+  }
+
+  void _toggle(String id) {
+    setState(() {
+      if (!_expandedIds.remove(id)) _expandedIds.add(id);
+    });
+    widget.onExpandedChanged?.call(Set<String>.from(_expandedIds));
   }
 
   List<({Note note, int depth, bool hasChildren})> _visibleRows() {
@@ -80,7 +97,10 @@ class _NotesTreeListState extends State<NotesTreeList> {
 
     if (widget.searchQuery.trim().isNotEmpty) {
       return [
-        for (final note in NotesTreeList.matchingNotes(widget.notes, widget.searchQuery))
+        for (final note in NotesTreeList.matchingNotes(
+          widget.notes,
+          widget.searchQuery,
+        ))
           (note: note, depth: 0, hasChildren: false),
       ];
     }
@@ -138,46 +158,40 @@ class _NotesTreeListState extends State<NotesTreeList> {
       itemCount: rows.length,
       itemBuilder: (context, index) {
         final row = rows[index];
-        return widget.compact ? _CompactNoteRow(
-          key: ValueKey('note_row_${row.note.id}'),
-          note: row.note,
-          depth: row.depth,
-          hasChildren: row.hasChildren,
-          isExpanded: _expandedIds.contains(row.note.id),
-          isSelected: row.note.id == widget.selectedNoteId,
-          onToggle: () {
-            setState(() {
-              if (!_expandedIds.remove(row.note.id)) _expandedIds.add(row.note.id);
-            });
-          },
-          onTap: () => widget.onOpenNote(row.note),
-          onLongPress: widget.onLongPressNote == null ? null : () => widget.onLongPressNote!(row.note),
-          onNoteMenu: widget.onNoteMenu,
-        ) : _NoteRow(
-          key: ValueKey('note_row_${row.note.id}'),
-          note: row.note,
-          depth: row.depth,
-          hasChildren: row.hasChildren,
-          isExpanded: _expandedIds.contains(row.note.id),
-          onToggle: () {
-            setState(() {
-              if (!_expandedIds.remove(row.note.id)) {
-                _expandedIds.add(row.note.id);
-              }
-            });
-          },
-          onTap: () => widget.onOpenNote(row.note),
-          onLongPress: () => widget.onLongPressNote?.call(row.note),
-        );
+        return widget.compact
+            ? _CompactNoteRow(
+                key: ValueKey('note_row_${row.note.id}'),
+                note: row.note,
+                depth: row.depth,
+                hasChildren: row.hasChildren,
+                isExpanded: _expandedIds.contains(row.note.id),
+                isSelected: row.note.id == widget.selectedNoteId,
+                onToggle: () => _toggle(row.note.id),
+                onTap: () => widget.onOpenNote(row.note),
+                onLongPress: widget.onLongPressNote == null
+                    ? null
+                    : () => widget.onLongPressNote!(row.note),
+                onNoteMenu: widget.onNoteMenu,
+              )
+            : _NoteRow(
+                key: ValueKey('note_row_${row.note.id}'),
+                note: row.note,
+                depth: row.depth,
+                hasChildren: row.hasChildren,
+                isExpanded: _expandedIds.contains(row.note.id),
+                onToggle: () => _toggle(row.note.id),
+                onTap: () => widget.onOpenNote(row.note),
+                onLongPress: () => widget.onLongPressNote?.call(row.note),
+              );
       },
     );
   }
 
   Widget _buildEmptyState(BuildContext context) {
     if (widget.compact) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.fromLTRB(8.0, 12.0, 8.0, 8.0),
-        child: _CompactEmptyState(),
+        child: _CompactEmptyState(ideas: widget.ideas),
       );
     }
     return Padding(
@@ -186,7 +200,7 @@ class _NotesTreeListState extends State<NotesTreeList> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Your notes will appear here.',
+            widget.ideas ? 'No ideas yet. Press + to capture one.' : 'Your notes will appear here.',
             style: AppTypography.subtitle(color: context.appTextSecondary),
           ),
           const SizedBox(height: 4.0),
@@ -208,12 +222,17 @@ class _NotesTreeListState extends State<NotesTreeList> {
 }
 
 class _CompactEmptyState extends StatelessWidget {
-  const _CompactEmptyState();
+  final bool ideas;
+  const _CompactEmptyState({required this.ideas});
 
   @override
   Widget build(BuildContext context) => Text(
-    'Your notes will appear here.',
-    style: AppTypography.uiLabel(fontSize: 13.0, fontWeight: FontWeight.w400, color: context.appTextSecondary),
+    ideas ? 'No ideas yet. Press + to capture one.' : 'Your notes will appear here.',
+    style: AppTypography.uiLabel(
+      fontSize: 13.0,
+      fontWeight: FontWeight.w400,
+      color: context.appTextSecondary,
+    ),
   );
 }
 
@@ -228,7 +247,18 @@ class _CompactNoteRow extends StatefulWidget {
   final VoidCallback? onLongPress;
   final void Function(Note note, Offset globalPosition)? onNoteMenu;
 
-  const _CompactNoteRow({super.key, required this.note, required this.depth, required this.hasChildren, required this.isExpanded, required this.isSelected, required this.onToggle, required this.onTap, this.onLongPress, this.onNoteMenu});
+  const _CompactNoteRow({
+    super.key,
+    required this.note,
+    required this.depth,
+    required this.hasChildren,
+    required this.isExpanded,
+    required this.isSelected,
+    required this.onToggle,
+    required this.onTap,
+    this.onLongPress,
+    this.onNoteMenu,
+  });
 
   @override
   State<_CompactNoteRow> createState() => _CompactNoteRowState();
@@ -240,7 +270,9 @@ class _CompactNoteRowState extends State<_CompactNoteRow> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.note.title.trim().isEmpty ? 'Untitled' : widget.note.title.trim();
+    final title = widget.note.title.trim().isEmpty
+        ? 'Untitled'
+        : widget.note.title.trim();
     final showMore = (_hovered || _focused) && widget.onNoteMenu != null;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -261,47 +293,94 @@ class _CompactNoteRowState extends State<_CompactNoteRow> {
                 },
           onSecondaryTapUp: widget.onNoteMenu == null
               ? null
-              : (details) => widget.onNoteMenu!(widget.note, details.globalPosition),
+              : (details) =>
+                    widget.onNoteMenu!(widget.note, details.globalPosition),
           child: Container(
             height: 30.0,
             decoration: BoxDecoration(
-              color: widget.isSelected ? context.appRowSelected : (_hovered ? context.appRowHover : null),
+              color: widget.isSelected
+                  ? context.appRowSelected
+                  : (_hovered ? context.appRowHover : null),
               borderRadius: BorderRadius.circular(6.0),
             ),
-            child: Row(children: [
-              SizedBox(width: 16.0 * widget.depth),
-              SizedBox(
-                width: 22.0,
-                child: widget.hasChildren ? IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 22.0, height: 30.0),
-                  onPressed: widget.onToggle,
-                  icon: Icon(widget.isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded, size: 18.0, color: context.appTextSecondary),
-                ) : null,
-              ),
-              Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.uiHeadline(fontSize: 14.0, fontWeight: FontWeight.w500, color: context.appTextPrimary))),
-              SizedBox(
-                width: 24.0,
-                height: 24.0,
-                child: showMore ? IconButton(
-                  tooltip: 'More', padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 24.0, height: 24.0),
-                  onPressed: () {
-                    final renderBox = context.findRenderObject() as RenderBox;
-                    final position = renderBox.localToGlobal(
-                      Offset(0, renderBox.size.height),
-                    );
-                    widget.onNoteMenu!(widget.note, position);
-                  },
-                  icon: Icon(Icons.more_horiz_rounded, size: 18.0, color: context.appTextSecondary),
-                ) : null,
-              ),
-              const SizedBox(width: 4.0),
-            ]),
+            child: Row(
+              children: [
+                SizedBox(width: 16.0 * widget.depth),
+                SizedBox(
+                  width: 22.0,
+                  child: widget.hasChildren
+                      ? IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 22.0,
+                            height: 30.0,
+                          ),
+                          onPressed: widget.onToggle,
+                          icon: Icon(
+                            widget.isExpanded
+                                ? Icons.expand_more_rounded
+                                : Icons.chevron_right_rounded,
+                            size: 18.0,
+                            color: context.appTextSecondary,
+                          ),
+                        )
+                      : null,
+                ),
+                Expanded(
+                  child: Row(children: [
+                    Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.uiHeadline(fontSize: 14.0, fontWeight: FontWeight.w500, color: context.appTextPrimary))),
+                    if (widget.depth == 0 && widget.note.isIdea) _IdeaStatusDot(status: widget.note.ideaStatus),
+                  ]),
+                ),
+                SizedBox(
+                  width: 24.0,
+                  height: 24.0,
+                  child: showMore
+                      ? IconButton(
+                          tooltip: 'More',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 24.0,
+                            height: 24.0,
+                          ),
+                          onPressed: () {
+                            final renderBox =
+                                context.findRenderObject() as RenderBox;
+                            final position = renderBox.localToGlobal(
+                              Offset(0, renderBox.size.height),
+                            );
+                            widget.onNoteMenu!(widget.note, position);
+                          },
+                          icon: Icon(
+                            Icons.more_horiz_rounded,
+                            size: 18.0,
+                            color: context.appTextSecondary,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 4.0),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _IdeaStatusDot extends StatelessWidget {
+  final String? status;
+  const _IdeaStatusDot({this.status});
+  @override
+  Widget build(BuildContext context) {
+    final filled = status == 'Ready' || status == 'Handed off' || status == 'Done';
+    final half = status == 'Exploring';
+    return Tooltip(message: status ?? 'Spark', child: Semantics(label: status ?? 'Spark', child: Container(
+      width: 8, height: 8, margin: const EdgeInsets.only(left: 6),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? context.appTextPrimary : null, border: Border.all(color: context.appTextPrimary)),
+      child: half ? Align(alignment: Alignment.centerLeft, child: Container(width: 3, decoration: BoxDecoration(color: context.appTextPrimary, borderRadius: const BorderRadius.horizontal(left: Radius.circular(4))))) : null,
+    )));
   }
 }
 
@@ -340,7 +419,20 @@ class _NoteRow extends StatelessWidget {
     final daysAgo = today.difference(day).inDays;
     if (daysAgo == 0) return 'Today';
     if (daysAgo == 1) return 'Yesterday';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     final label = '${date.day} ${months[date.month - 1]}';
     return date.year == now.year ? label : '$label ${date.year}';
   }
@@ -355,7 +447,12 @@ class _NoteRow extends StatelessWidget {
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(8.0),
       child: Padding(
-        padding: EdgeInsets.only(left: 20.0 * depth, top: 9.0, bottom: 9.0, right: 12.0),
+        padding: EdgeInsets.only(
+          left: 20.0 * depth,
+          top: 9.0,
+          bottom: 9.0,
+          right: 12.0,
+        ),
         child: Row(
           children: [
             SizedBox(
@@ -364,10 +461,14 @@ class _NoteRow extends StatelessWidget {
               child: hasChildren
                   ? IconButton(
                       padding: EdgeInsets.zero,
-                      tooltip: isExpanded ? 'Hide notes inside' : 'Show notes inside',
+                      tooltip: isExpanded
+                          ? 'Hide notes inside'
+                          : 'Show notes inside',
                       onPressed: onToggle,
                       icon: Icon(
-                        isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                        isExpanded
+                            ? Icons.expand_more_rounded
+                            : Icons.chevron_right_rounded,
                         size: 20.0,
                         color: context.appTextSecondary,
                       ),
@@ -379,15 +480,15 @@ class _NoteRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.uiHeadline(color: context.appTextPrimary),
-                  ),
+                  Row(children: [
+                    Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.uiHeadline(color: context.appTextPrimary))),
+                    if (depth == 0 && note.isIdea) _IdeaStatusDot(status: note.ideaStatus),
+                  ]),
                   const SizedBox(height: 2.0),
                   Text(
-                    preview.isEmpty ? _formatDate(note.updatedAt) : '${_formatDate(note.updatedAt)}   $preview',
+                    preview.isEmpty
+                        ? _formatDate(note.updatedAt)
+                        : '${_formatDate(note.updatedAt)}   $preview',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.uiLabel(

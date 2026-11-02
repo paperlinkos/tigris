@@ -38,6 +38,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
     }
 
     final due = await scope.reviewRepository.getDueReviews();
+    final eligibleDue = <ReviewItem>[];
     final notes = <String, Note>{};
     final flashcards = <String, List<Flashcard>>{};
 
@@ -45,7 +46,10 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
       if (!notes.containsKey(item.noteId)) {
         final note = await scope.noteRepository.getNote(item.noteId);
         if (note != null) {
-          notes[item.noteId] = note;
+          if (note.workspace == Note.notesWorkspace) {
+            notes[item.noteId] = note;
+            eligibleDue.add(item);
+          }
         }
       }
       if (scope.flashcardRepository != null && !flashcards.containsKey(item.noteId)) {
@@ -56,7 +60,7 @@ class _ReviewSessionScreenState extends State<ReviewSessionScreen> {
 
     if (mounted) {
       setState(() {
-        _dueQueue = due;
+        _dueQueue = eligibleDue;
         _notesCache.addAll(notes);
         _flashcardsCache.addAll(flashcards);
         _isLoading = false;

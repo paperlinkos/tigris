@@ -92,6 +92,25 @@ only covered by automated tests so far.
 - [ ] Make it fun: score and "try the ones I missed", kept simple
 - [ ] Remove the fake AI (`LocalAiService`) from the live app
 
+## 9b. Ideas workspace (in progress)
+
+- [x] Stage 1: separate Ideas workspace, statuses, Ship to agent (copy brief and command)
+- [ ] Save as file and Run in Terminal (needs a file-picker dependency and a macOS sandbox change, awaiting a yes)
+- [ ] Brainstorm chat: AI helps refine an idea, reads only that idea and its pages
+- [ ] Tigris MCP server so Codex and Claude Code read Ready ideas directly and write results back
+
+## 9c. Sticky notes and widgets (new, from the user, 2 Nov 2026)
+
+Idea: quick notes that live on the desktop or home screen, so ideas can be jotted anywhere and filed later.
+
+- [ ] Mac: floating sticky notes (separate small windows) that stay on the desktop, each saved in Tigris, with a "send to" choice: Ideas, a chosen note, or Notes
+- [ ] Mac: a menu-bar quick-capture and a Notification Center widget showing recent ideas (WidgetKit, needs native Swift code and an App Group)
+- [ ] Android: a home-screen widget with quick capture and a recent-ideas list (native Kotlin code)
+- [ ] iPhone widget, if wanted
+- [ ] Stickies sync like any note and work offline
+
+Notes: Flutter can't draw desktop widgets by itself, so these need a small native piece on each platform, and floating windows need a multi-window package. Plan this properly with build-flow before building.
+
 ## 10. New logo
 
 - [ ] Choose a new logo to replace the current one, which you don't like

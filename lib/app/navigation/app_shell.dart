@@ -126,6 +126,7 @@ class _AppShellState extends State<AppShell> {
             );
             _homeKey.currentState?.reload();
           }
+
           if (constraints.maxWidth >= desktopBreakpoint) {
             return DesktopShell(
               noteRepository: _noteRepository,
@@ -135,6 +136,7 @@ class _AppShellState extends State<AppShell> {
               backupService: widget.backupService,
               driveAccount: widget.driveAccount,
               onStartReview: onStartReview,
+              storage: widget.storage,
             );
           }
           return Scaffold(

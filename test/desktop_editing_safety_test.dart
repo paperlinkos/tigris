@@ -65,7 +65,7 @@ void main() {
       await repo.saveNote(_note('child', 'Child', DateTime(2026, 2), parentId: 'top'));
       await repo.saveNote(_note('other', 'Other', DateTime(2020)));
     });
-    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(noteRepository: repo)));
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(storage: InMemoryStorage(), noteRepository: repo)));
     await _settle(tester);
 
     await tester.tapAt(tester.getTopLeft(find.byKey(const ValueKey('note_row_top'))) + const Offset(12, 15));
@@ -118,7 +118,7 @@ void main() {
       final local = LocalNoteRepository(storage: InMemoryStorage());
       final repo = OfflineFirstNoteRepository(localRepo: local);
       await repo.saveNote(_note('a', 'First', DateTime(2026)));
-      await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(noteRepository: repo)));
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(storage: InMemoryStorage(), noteRepository: repo)));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('note_row_a')), buttons: kSecondaryMouseButton);
@@ -146,7 +146,7 @@ void main() {
     await _size(tester);
     final repo = OfflineFirstNoteRepository(localRepo: LocalNoteRepository(storage: InMemoryStorage()));
     await repo.saveNote(_note('a', 'First', DateTime(2026)));
-    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(noteRepository: repo)));
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(storage: InMemoryStorage(), noteRepository: repo)));
     await tester.pumpAndSettle();
 
     await _chord(tester, LogicalKeyboardKey.control, LogicalKeyboardKey.keyK);

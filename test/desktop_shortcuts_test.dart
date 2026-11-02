@@ -16,7 +16,7 @@ Future<OfflineFirstNoteRepository> _pump(WidgetTester tester) async {
   final now = DateTime(2026);
   await repo.saveNote(Note(id: 'a', title: 'Alpha', content: 'first', createdAt: now, updatedAt: now));
   await repo.saveNote(Note(id: 'b', title: 'Beta', content: 'second', createdAt: now.add(const Duration(seconds: 1)), updatedAt: now.add(const Duration(seconds: 1))));
-  await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(noteRepository: repo)));
+  await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(storage: InMemoryStorage(), noteRepository: repo)));
   await tester.pumpAndSettle();
   return repo;
 }

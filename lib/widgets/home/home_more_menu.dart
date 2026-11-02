@@ -15,6 +15,7 @@ import '../../services/drive_account.dart';
 import '../../services/note_sync_engine.dart';
 import '../../services/sync_coordinator.dart';
 import '../../views/tasks_view.dart';
+import '../desktop_panel.dart';
 
 String syncStatusText(SyncState state) => switch (state) {
   SyncState.signedOut => 'On this device only',
@@ -22,7 +23,8 @@ String syncStatusText(SyncState state) => switch (state) {
   SyncState.syncing => 'Syncing...',
   SyncState.synced => 'Synced',
   SyncState.offline => 'Offline. Will sync when you reconnect.',
-  SyncState.accountMismatch => 'Sync paused. These notes belong to another account.',
+  SyncState.accountMismatch =>
+    'Sync paused. These notes belong to another account.',
   SyncState.error => "Couldn't sync. Will try again.",
 };
 
@@ -47,38 +49,49 @@ class HomeMoreMenuActions {
     this.onStartReview,
   });
 
-  Future<void> openTasks() => Navigator.of(context).push(MaterialPageRoute(
-    builder: (context) => Scaffold(
-      backgroundColor: context.appBg,
-      appBar: AppBar(
+  Future<void> openTasks() => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => Scaffold(
         backgroundColor: context.appBg,
-        title: Text('Tasks', style: AppTypography.uiHeadline(color: context.appTextPrimary)),
+        appBar: AppBar(
+          backgroundColor: context.appBg,
+          title: Text(
+            'Tasks',
+            style: AppTypography.uiHeadline(color: context.appTextPrimary),
+          ),
+        ),
+        body: TasksView(taskRepository: taskRepository, searchQuery: ''),
       ),
-      body: TasksView(taskRepository: taskRepository, searchQuery: ''),
     ),
-  ));
+  );
 
   Future<void> sync() async {
     final repo = RepositoryScope.maybeOf(context)?.noteRepository;
     if (repo is OfflineFirstNoteRepository) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Syncing notes...')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Syncing notes...')));
       await repo.syncWithCloud();
     }
   }
 
-  Future<void> openSignIn() => Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => LoginScreen(authService: AuthService())),
+  Future<void> openSignIn() => openScreen(
+    context,
+    (_) => LoginScreen(authService: AuthService()),
+    width: 420,
+    height: 640,
   );
 
-  Future<void> openSettings() => Navigator.of(context).push(MaterialPageRoute(
-    builder: (context) => SettingsScreen(
+  Future<void> openSettings() => openScreen(
+    context,
+    (context) => SettingsScreen(
       syncService: syncService,
       syncEngine: syncEngine,
       syncCoordinator: syncCoordinator,
       backupService: backupService,
       driveAccount: driveAccount,
     ),
-  ));
+  );
 
   Future<void> openReview() async {
     if (onStartReview != null) {
@@ -87,15 +100,17 @@ class HomeMoreMenuActions {
     }
     final scope = RepositoryScope.maybeOf(context);
     if (scope == null) return;
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => RepositoryScope(
-        noteRepository: scope.noteRepository,
-        reviewRepository: scope.reviewRepository,
-        flashcardRepository: scope.flashcardRepository,
-        quizRepository: scope.quizRepository,
-        child: const ReviewSessionScreen(),
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => RepositoryScope(
+          noteRepository: scope.noteRepository,
+          reviewRepository: scope.reviewRepository,
+          flashcardRepository: scope.flashcardRepository,
+          quizRepository: scope.quizRepository,
+          child: const ReviewSessionScreen(),
+        ),
       ),
-    ));
+    );
   }
 
   void toggleTheme() => ThemeControllerScope.maybeOf(context)?.toggleDarkMode();
@@ -124,32 +139,61 @@ class HomeMoreMenu extends StatelessWidget {
     final themeController = ThemeControllerScope.maybeOf(context);
     final signedOut = !AuthService().isAuthenticated;
     return PopupMenuButton<String>(
-      key: const Key('home_more_menu'), tooltip: 'More',
+      key: const Key('home_more_menu'),
+      tooltip: 'More',
       icon: Icon(Icons.more_horiz_rounded, color: context.appTextPrimary),
-      color: context.appRaised, elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: context.appBorder)),
+      color: context.appRaised,
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: context.appBorder),
+      ),
       onSelected: (value) {
         switch (value) {
-          case 'signin': onSignIn();
-          case 'review': onReview();
-          case 'tasks': onTasks();
-          case 'sync': onSync();
-          case 'theme': onTheme();
-          case 'settings': onSettings();
+          case 'signin':
+            onSignIn();
+          case 'review':
+            onReview();
+          case 'tasks':
+            onTasks();
+          case 'sync':
+            onSync();
+          case 'theme':
+            onTheme();
+          case 'settings':
+            onSettings();
         }
       },
       itemBuilder: (context) => [
         if (signedOut) _item(context, 'signin', 'Sign in'),
-        _item(context, 'review', 'Review'), _item(context, 'tasks', 'Tasks'),
+        _item(context, 'review', 'Review'),
+        _item(context, 'tasks', 'Tasks'),
         _item(context, 'sync', 'Sync notes'),
-        if (themeController != null) _item(context, 'theme', context.isDarkMode ? 'Light mode' : 'Dark mode'),
+        if (themeController != null)
+          _item(
+            context,
+            'theme',
+            context.isDarkMode ? 'Light mode' : 'Dark mode',
+          ),
         _item(context, 'settings', 'Settings'),
       ],
     );
   }
 
-  PopupMenuItem<String> _item(BuildContext context, String value, String label) => PopupMenuItem<String>(
-    value: value, height: 42,
-    child: Text(label, style: AppTypography.uiLabel(fontSize: 14, fontWeight: FontWeight.w400, color: context.appTextPrimary)),
+  PopupMenuItem<String> _item(
+    BuildContext context,
+    String value,
+    String label,
+  ) => PopupMenuItem<String>(
+    value: value,
+    height: 42,
+    child: Text(
+      label,
+      style: AppTypography.uiLabel(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: context.appTextPrimary,
+      ),
+    ),
   );
 }

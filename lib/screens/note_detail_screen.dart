@@ -12,6 +12,8 @@ import '../widgets/ai/ai_actions_sheet.dart';
 import '../widgets/ai/note_analysis_sheet.dart';
 import '../widgets/editor/block_note_editor.dart';
 import '../widgets/editor/page_block_picker_sheet.dart';
+import '../widgets/desktop_panel.dart';
+import '../widgets/ideas/ship_to_agent_panel.dart';
 
 class NoteDetailScreen extends StatefulWidget {
   final String noteId;
@@ -63,8 +65,15 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   bool _hasUnsavedChanges = false;
   bool _isWritingBody = false;
 
+  // Kept from didChangeDependencies so dispose can still save after the
+  // widget has been deactivated, when context lookups are no longer allowed.
+  NoteRepository? _scopedRepo;
+  bool _disposing = false;
+
   NoteRepository? get _repo =>
-      widget.noteRepository ?? RepositoryScope.maybeOf(context)?.noteRepository;
+      widget.noteRepository ??
+      _scopedRepo ??
+      (mounted && !_disposing ? RepositoryScope.maybeOf(context)?.noteRepository : null);
 
   @override
   void initState() {
@@ -115,6 +124,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _titleController.removeListener(_onFieldChanged);
     _titleFocusNode.removeListener(_onFocusChanged);
 
+    _disposing = true;
     _saveCurrentChangesSync();
 
     _titleController.dispose();
@@ -199,6 +209,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _scopedRepo = RepositoryScope.maybeOf(context)?.noteRepository;
     _loadNoteData();
   }
 
@@ -339,6 +350,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       title: name,
       content: '',
       parentId: _note!.id,
+      workspace: _note!.workspace,
       createdAt: now,
       updatedAt: now,
     );
@@ -495,6 +507,27 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (mounted) {
       Navigator.of(context).pop(true);
     }
+  }
+
+  Future<void> _setIdeaStatus(String status) async {
+    final repo = _repo;
+    if (_note == null || repo == null) return;
+    final updated = _note!.copyWith(ideaStatus: status, updatedAt: DateTime.now());
+    await repo.saveNote(updated);
+    if (mounted) setState(() => _note = updated);
+  }
+
+  Future<void> _shipToAgent() async {
+    final repo = _repo;
+    if (_note == null || repo == null) return;
+    final all = await repo.getAllNotes();
+    var root = _note!;
+    final byId = {for (final note in all) note.id: note};
+    final seen = <String>{};
+    while (root.parentId != null && seen.add(root.id) && byId[root.parentId] != null) { root = byId[root.parentId]!; }
+    if (!mounted) return;
+    await openScreen(context, (_) => ShipToAgentPanel(root: root, notes: all, repository: repo));
+    await _loadNoteData();
   }
 
   void _showAddBlockPicker() {
@@ -671,6 +704,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           titleSpacing: _isEmbedded ? widget.embeddedTitleInset : null,
           title: _isEmbedded ? _buildEmbeddedBreadcrumb() : null,
           actions: [
+            if (_note!.isIdea)
+              TextButton(onPressed: _shipToAgent, child: const Text('Ship to agent')),
             TextButton(
               onPressed: _openAiActions,
               style: TextButton.styleFrom(
@@ -704,9 +739,12 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     _openUnderstandNote();
                   case 'delete':
                     _confirmDelete();
+                  case 'ship':
+                    _shipToAgent();
                 }
               },
-              itemBuilder: (context) => const [
+              itemBuilder: (context) => [
+                if (_note!.isIdea) const PopupMenuItem(value: 'ship', child: Text('Ship to agent')),
                 PopupMenuItem(value: 'add_page', child: Text('Add page inside')),
                 PopupMenuItem(value: 'understand', child: Text('Understand note')),
                 PopupMenuItem(value: 'delete', child: Text('Delete note')),
@@ -735,6 +773,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   padding: const EdgeInsets.only(left: 26.0),
                   child: _buildBreadcrumbs(),
                 ),
+                if (_note!.isIdea && _note!.parentId == null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 26, top: 12),
+                    child: Wrap(spacing: 6, runSpacing: 6, children: [for (final status in Note.ideaStatuses) ChoiceChip(label: Text(status), selected: _note!.ideaStatus == status, onSelected: (_) => _setIdeaStatus(status))]),
+                  ),
+                if (_note!.handedOffTo != null && _note!.handedOffAt != null)
+                  Padding(padding: const EdgeInsets.only(left: 26, top: 8), child: Text('Handed off to ${_note!.handedOffTo} on ${_shortDate(_note!.handedOffAt!)}.', style: AppTypography.uiLabel(fontSize: 12, color: context.appTextSecondary))),
 
                 Padding(
                   padding: const EdgeInsets.only(left: 26.0),
@@ -794,6 +839,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       dynamic dynamicState = state;
       dynamicState.focusBody(atEnd: atEnd);
     }
+  }
+
+  String _shortDate(DateTime date) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${date.day} ${months[date.month - 1]}';
   }
 
 

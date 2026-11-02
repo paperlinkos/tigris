@@ -214,7 +214,7 @@ void main() {
     addTearDown(tester.view.reset);
     final repo = LocalNoteRepository(storage: InMemoryStorage());
     await repo.saveNote(_note('a', 'Alpha'));
-    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(noteRepository: repo)));
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: DesktopShell(storage: InMemoryStorage(), noteRepository: repo)));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('desktop_hide_sidebar')));
