@@ -95,7 +95,8 @@ only covered by automated tests so far.
 ## 9b. Ideas workspace (in progress)
 
 - [x] Stage 1: separate Ideas workspace, statuses, Ship to agent (copy brief and command)
-- [ ] Save as file and Run in Terminal (needs a file-picker dependency and a macOS sandbox change, awaiting a yes)
+- [x] Save as file (file picker, macOS user-selected-files permission)
+- [ ] Run in Terminal: dropped for now. The sandboxed Mac app can't launch Terminal, and turning the sandbox off isn't worth it. Revisit with the MCP server.
 - [ ] Brainstorm chat: AI helps refine an idea, reads only that idea and its pages
 - [ ] Tigris MCP server so Codex and Claude Code read Ready ideas directly and write results back
 

@@ -1417,7 +1417,12 @@ class _BlockRowState extends State<_BlockRow> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          dragHandle,
+          // Centre the handle on the first line of text: one line of the
+          // style plus the field's 4px padding above and below.
+          SizedBox(
+            height: (textStyle.fontSize ?? 16.0) * (textStyle.height ?? 1.2) + 8.0,
+            child: Center(child: dragHandle),
+          ),
           prefixWidget,
           Expanded(
             child: CallbackShortcuts(

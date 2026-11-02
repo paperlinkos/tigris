@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme/app_typography.dart';
@@ -10,7 +12,10 @@ class ShipToAgentPanel extends StatefulWidget {
   final Note root;
   final List<Note> notes;
   final NoteRepository repository;
-  const ShipToAgentPanel({super.key, required this.root, required this.notes, required this.repository});
+  /// Saves the brief and returns whether it was saved. Defaults to the system
+  /// save dialog; tests pass their own.
+  final Future<bool> Function(String fileName, Uint8List bytes)? onSaveFile;
+  const ShipToAgentPanel({super.key, required this.root, required this.notes, required this.repository, this.onSaveFile});
   @override State<ShipToAgentPanel> createState() => _ShipToAgentPanelState();
 }
 
@@ -21,9 +26,18 @@ class _ShipToAgentPanelState extends State<ShipToAgentPanel> {
   String get _path => '~/.claude/handoffs/Ideas/${ideaBriefSlug(widget.root.title)}.md';
   @override void dispose() { _brief.dispose(); super.dispose(); }
   void _copy(String value, String label) { Clipboard.setData(ClipboardData(text: value)); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label copied'), duration: const Duration(seconds: 1))); }
+  Future<void> _markHandedOff() => widget.repository.saveNote(widget.root.copyWith(ideaStatus: 'Handed off', handedOffTo: _name, handedOffAt: DateTime.now(), updatedAt: DateTime.now()));
   Future<void> _copyBrief() async {
     _copy(_brief.text, 'Brief');
-    await widget.repository.saveNote(widget.root.copyWith(ideaStatus: 'Handed off', handedOffTo: _name, handedOffAt: DateTime.now(), updatedAt: DateTime.now()));
+    await _markHandedOff();
+  }
+  Future<bool> _defaultSave(String fileName, Uint8List bytes) async =>
+      await FilePicker.saveFile(fileName: fileName, bytes: bytes, mimeType: 'text/markdown', dialogTitle: 'Save brief') != null;
+  Future<void> _saveFile() async {
+    final saved = await (widget.onSaveFile ?? _defaultSave)('${ideaBriefSlug(widget.root.title)}.md', Uint8List.fromList(utf8.encode(_brief.text)));
+    if (!saved || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Brief saved'), duration: Duration(seconds: 1)));
+    await _markHandedOff();
   }
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Ship to an agent'), automaticallyImplyLeading: true),
@@ -34,8 +48,8 @@ class _ShipToAgentPanelState extends State<ShipToAgentPanel> {
       const SizedBox(height: 12),
       Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: context.appSidebar, borderRadius: BorderRadius.circular(6)), child: SelectableText(ideaAgentCommand(_agent, _path), style: const TextStyle(fontFamily: 'monospace'))),
       const SizedBox(height: 12),
-      Row(children: [Expanded(child: ElevatedButton(onPressed: _copyBrief, child: const Text('Copy brief'))), const SizedBox(width: 8), Expanded(child: OutlinedButton(onPressed: () => _copy(ideaAgentCommand(_agent, _path), 'Command'), child: const Text('Copy command')))]),
-      const SizedBox(height: 8), Text('Save as file and Run in Terminal are coming. For now, paste the command into your terminal.', style: AppTypography.uiLabel(fontSize: 12, color: context.appTextSecondary)),
+      Row(children: [Expanded(child: ElevatedButton(onPressed: _copyBrief, child: const Text('Copy brief'))), const SizedBox(width: 8), Expanded(child: OutlinedButton(onPressed: () => _copy(ideaAgentCommand(_agent, _path), 'Command'), child: const Text('Copy command'))), const SizedBox(width: 8), Expanded(child: OutlinedButton(key: const Key('save_brief_file'), onPressed: _saveFile, child: const Text('Save as file')))]),
+      const SizedBox(height: 8), Text('Save the brief where you like, then paste the command into your terminal. Tigris cannot open a terminal itself.', style: AppTypography.uiLabel(fontSize: 12, color: context.appTextSecondary)),
     ])),
   );
 }
