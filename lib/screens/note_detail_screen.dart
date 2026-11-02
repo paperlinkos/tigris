@@ -20,6 +20,10 @@ class NoteDetailScreen extends StatefulWidget {
   final List<Note>? navigationAncestors;
   final ValueChanged<String>? onNavigateToNote;
   final VoidCallback? onDeleted;
+  final String? externalTitle;
+
+  /// Each new value moves the cursor to the note's body.
+  final int focusBodyRequest;
 
   /// Left inset of the breadcrumb when embedded, to clear a control over the pane.
   final double embeddedTitleInset;
@@ -32,6 +36,8 @@ class NoteDetailScreen extends StatefulWidget {
     this.navigationAncestors,
     this.onNavigateToNote,
     this.onDeleted,
+    this.externalTitle,
+    this.focusBodyRequest = 0,
     this.embeddedTitleInset = 16.0,
   });
 
@@ -73,6 +79,18 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
     if (_note != null) {
       _currentBlocks = List.from(_note!.blocks);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant NoteDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final title = widget.externalTitle;
+    if (title != oldWidget.externalTitle && title != null && title != _titleController.text) {
+      _titleController.text = title;
+    }
+    if (widget.focusBodyRequest != oldWidget.focusBodyRequest) {
+      _focusBody();
     }
   }
 
@@ -777,6 +795,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       dynamicState.focusBody(atEnd: atEnd);
     }
   }
+
 
   bool get _isEmbedded => widget.onNavigateToNote != null;
 

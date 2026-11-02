@@ -8,7 +8,7 @@ import 'package:tigris/widgets/home/notes_tree_list.dart';
 
 Note _note(String id, String title, {String content = '', String? parentId}) => Note(id: id, title: title, content: content, parentId: parentId, createdAt: DateTime(2026), updatedAt: DateTime(2026));
 
-Widget _tree(List<Note> notes, {bool compact = false, String? selected}) => MaterialApp(theme: AppTheme.lightTheme, home: Scaffold(body: NotesTreeList(notes: notes, searchQuery: '', compact: compact, selectedNoteId: selected, onCreateNote: () {}, onOpenNote: (_) {}, onLongPressNote: (_) {})));
+Widget _tree(List<Note> notes, {bool compact = false, String? selected}) => MaterialApp(theme: AppTheme.lightTheme, home: Scaffold(body: NotesTreeList(notes: notes, searchQuery: '', compact: compact, selectedNoteId: selected, onCreateNote: () {}, onOpenNote: (_) {}, onNoteMenu: (note, position) {})));
 
 void main() {
   testWidgets('compact hides dates and previews, and non-compact shows them', (tester) async {

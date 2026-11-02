@@ -12,6 +12,21 @@ class OfflineFirstNoteRepository implements NoteRepository {
   final VoidCallback? onLocalChange;
   final Future<void> Function()? onSyncRequested;
 
+  // Writes run strictly in order, so a note's final save on closing can't land
+  // after a delete that was requested later and bring the note back.
+  Future<void>? _lastWrite;
+
+  Future<void> _inOrder(Future<void> Function() write) {
+    final previous = _lastWrite;
+    final result = previous == null ? write() : previous.then((_) => write());
+    late final Future<void> tracked;
+    tracked = result.catchError((Object _) {}).whenComplete(() {
+      if (identical(_lastWrite, tracked)) _lastWrite = null;
+    });
+    _lastWrite = tracked;
+    return result;
+  }
+
   OfflineFirstNoteRepository({
     required this.localRepo,
     this.syncService,
@@ -66,7 +81,9 @@ class OfflineFirstNoteRepository implements NoteRepository {
   }
 
   @override
-  Future<void> saveNote(Note note) async {
+  Future<void> saveNote(Note note) => _inOrder(() => _saveNote(note));
+
+  Future<void> _saveNote(Note note) async {
     final noteWithRetention = note.offlineUntil == null
         ? note.copyWith(
             offlineUntil: DateTime.now().add(const Duration(days: 5)),
@@ -83,7 +100,9 @@ class OfflineFirstNoteRepository implements NoteRepository {
   }
 
   @override
-  Future<void> deleteNote(String id) async {
+  Future<void> deleteNote(String id) => _inOrder(() => _deleteNote(id));
+
+  Future<void> _deleteNote(String id) async {
     final note = await localRepo.getNote(id);
     await localRepo.deleteNote(id);
     syncService?.setSavedLocally();

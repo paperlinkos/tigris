@@ -1443,6 +1443,32 @@ class _BlockRowState extends State<_BlockRow> {
                     _editor._handleBackspace(index);
                   }
                 },
+                if (_editor.widget.desktopFormatting) ...{
+                  const SingleActivator(LogicalKeyboardKey.keyB, control: true): () {
+                    _editor._setActiveIndex(index);
+                    _editor.toggleBold();
+                  },
+                  const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () {
+                    _editor._setActiveIndex(index);
+                    _editor.toggleBold();
+                  },
+                  const SingleActivator(LogicalKeyboardKey.keyI, control: true): () {
+                    _editor._setActiveIndex(index);
+                    _editor.toggleItalic();
+                  },
+                  const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () {
+                    _editor._setActiveIndex(index);
+                    _editor.toggleItalic();
+                  },
+                  const SingleActivator(LogicalKeyboardKey.tab): () {
+                    _editor._setActiveIndex(index);
+                    _editor.increaseIndent();
+                  },
+                  const SingleActivator(LogicalKeyboardKey.tab, shift: true): () {
+                    _editor._setActiveIndex(index);
+                    _editor.decreaseIndent();
+                  },
+                },
               },
               child: TextFormField(
                 controller: controller,

@@ -12,6 +12,7 @@ class NotesTreeList extends StatefulWidget {
   final VoidCallback onCreateNote;
   final ValueChanged<Note> onOpenNote;
   final ValueChanged<Note>? onLongPressNote;
+  final void Function(Note note, Offset globalPosition)? onNoteMenu;
   final bool compact;
   final String? selectedNoteId;
 
@@ -22,9 +23,24 @@ class NotesTreeList extends StatefulWidget {
     required this.onCreateNote,
     required this.onOpenNote,
     this.onLongPressNote,
+    this.onNoteMenu,
     this.compact = false,
     this.selectedNoteId,
   });
+
+  /// Notes matching [query], in the same most-recent-first order as search.
+  static List<Note> matchingNotes(List<Note> notes, String query) {
+    final byRecent = List<Note>.from(notes)
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return byRecent;
+    return [
+      for (final note in byRecent)
+        if (note.title.toLowerCase().contains(normalized) ||
+            note.content.toLowerCase().contains(normalized))
+          note,
+    ];
+  }
 
   @override
   State<NotesTreeList> createState() => _NotesTreeListState();
@@ -62,13 +78,10 @@ class _NotesTreeListState extends State<NotesTreeList> {
     final byRecent = List<Note>.from(widget.notes)
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
-    final query = widget.searchQuery.trim().toLowerCase();
-    if (query.isNotEmpty) {
+    if (widget.searchQuery.trim().isNotEmpty) {
       return [
-        for (final note in byRecent)
-          if (note.title.toLowerCase().contains(query) ||
-              note.content.toLowerCase().contains(query))
-            (note: note, depth: 0, hasChildren: false),
+        for (final note in NotesTreeList.matchingNotes(widget.notes, widget.searchQuery))
+          (note: note, depth: 0, hasChildren: false),
       ];
     }
 
@@ -139,6 +152,7 @@ class _NotesTreeListState extends State<NotesTreeList> {
           },
           onTap: () => widget.onOpenNote(row.note),
           onLongPress: widget.onLongPressNote == null ? null : () => widget.onLongPressNote!(row.note),
+          onNoteMenu: widget.onNoteMenu,
         ) : _NoteRow(
           key: ValueKey('note_row_${row.note.id}'),
           note: row.note,
@@ -212,8 +226,9 @@ class _CompactNoteRow extends StatefulWidget {
   final VoidCallback onToggle;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final void Function(Note note, Offset globalPosition)? onNoteMenu;
 
-  const _CompactNoteRow({super.key, required this.note, required this.depth, required this.hasChildren, required this.isExpanded, required this.isSelected, required this.onToggle, required this.onTap, this.onLongPress});
+  const _CompactNoteRow({super.key, required this.note, required this.depth, required this.hasChildren, required this.isExpanded, required this.isSelected, required this.onToggle, required this.onTap, this.onLongPress, this.onNoteMenu});
 
   @override
   State<_CompactNoteRow> createState() => _CompactNoteRowState();
@@ -226,7 +241,7 @@ class _CompactNoteRowState extends State<_CompactNoteRow> {
   @override
   Widget build(BuildContext context) {
     final title = widget.note.title.trim().isEmpty ? 'Untitled' : widget.note.title.trim();
-    final showMore = (_hovered || _focused) && widget.onLongPress != null;
+    final showMore = (_hovered || _focused) && widget.onNoteMenu != null;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -235,7 +250,18 @@ class _CompactNoteRowState extends State<_CompactNoteRow> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
+          onLongPress: widget.onNoteMenu == null
+              ? widget.onLongPress
+              : () {
+                  final renderBox = context.findRenderObject() as RenderBox;
+                  widget.onNoteMenu!(
+                    widget.note,
+                    renderBox.localToGlobal(renderBox.size.center(Offset.zero)),
+                  );
+                },
+          onSecondaryTapUp: widget.onNoteMenu == null
+              ? null
+              : (details) => widget.onNoteMenu!(widget.note, details.globalPosition),
           child: Container(
             height: 30.0,
             decoration: BoxDecoration(
@@ -260,7 +286,13 @@ class _CompactNoteRowState extends State<_CompactNoteRow> {
                 child: showMore ? IconButton(
                   tooltip: 'More', padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(width: 24.0, height: 24.0),
-                  onPressed: widget.onLongPress,
+                  onPressed: () {
+                    final renderBox = context.findRenderObject() as RenderBox;
+                    final position = renderBox.localToGlobal(
+                      Offset(0, renderBox.size.height),
+                    );
+                    widget.onNoteMenu!(widget.note, position);
+                  },
                   icon: Icon(Icons.more_horiz_rounded, size: 18.0, color: context.appTextSecondary),
                 ) : null,
               ),
