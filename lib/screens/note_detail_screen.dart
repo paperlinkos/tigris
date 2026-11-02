@@ -741,7 +741,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   maxLines: null,
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
-                  onSubmitted: (_) => _focusBody(),
+                  // Replaces the default next-field move, so focus moves only once.
+                  onEditingComplete: _focusBody,
                   ),
                 ),
                 const SizedBox(height: 16.0),

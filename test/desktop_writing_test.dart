@@ -224,4 +224,23 @@ void main() {
     final crumb = tester.getRect(find.byKey(const Key('note_breadcrumb')));
     expect(crumb.left, greaterThanOrEqualTo(button.right));
   });
+
+  for (final embedded in [true, false]) {
+    testWidgets('Enter in the title moves to the body and typing lands there (embedded: $embedded)', (tester) async {
+      await _pump(tester, [_note('a', 'Alpha', content: '')], 'a', embedded: embedded);
+      await tester.tap(find.byType(TextField).first);
+      await tester.pump();
+
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await tester.pumpAndSettle();
+
+      final body = tester.widget<EditableText>(_line(0));
+      expect(body.focusNode.hasFocus, isTrue);
+      expect(tester.testTextInput.hasAnyClients, isTrue);
+
+      tester.testTextInput.enterText('typed after enter');
+      await tester.pumpAndSettle();
+      expect(body.controller.text, 'typed after enter');
+    });
+  }
 }

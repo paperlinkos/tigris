@@ -34,6 +34,45 @@ class RichTextEditingController extends TextEditingController {
   }) : attributes = attributes != null ? List.from(attributes) : [];
 
   @override
+  set value(TextEditingValue newValue) {
+    if (newValue.text != text && attributes.isNotEmpty) {
+      attributes = _shiftedAttributes(text, newValue.text);
+    }
+    super.value = newValue;
+  }
+
+  /// Moves each range so it stays on the same characters after an edit.
+  List<InlineAttribute> _shiftedAttributes(String oldText, String newText) {
+    final shorter = oldText.length < newText.length ? oldText.length : newText.length;
+    var prefix = 0;
+    while (prefix < shorter && oldText.codeUnitAt(prefix) == newText.codeUnitAt(prefix)) {
+      prefix++;
+    }
+    var suffix = 0;
+    while (suffix < shorter - prefix &&
+        oldText.codeUnitAt(oldText.length - 1 - suffix) == newText.codeUnitAt(newText.length - 1 - suffix)) {
+      suffix++;
+    }
+    final oldEnd = oldText.length - suffix;
+    final newEnd = newText.length - suffix;
+    final delta = newEnd - oldEnd;
+
+    final shifted = <InlineAttribute>[];
+    for (final attr in attributes) {
+      final start = attr.start >= oldEnd
+          ? attr.start + delta
+          : (attr.start <= prefix ? attr.start : newEnd);
+      final end = attr.end <= prefix
+          ? attr.end
+          : (attr.end >= oldEnd ? attr.end + delta : newEnd);
+      if (start < end) {
+        shifted.add(InlineAttribute(start: start, end: end, type: attr.type));
+      }
+    }
+    return shifted;
+  }
+
+  @override
   TextSpan buildTextSpan({
     required BuildContext context,
     TextStyle? style,
@@ -588,6 +627,9 @@ class BlockNoteEditorState extends State<BlockNoteEditor> {
     insertBlockAfter(index, '');
   }
 
+  @visibleForTesting
+  void mergeLineIntoPrevious(int index) => _handleBackspace(index);
+
   void _handleBackspace(int index) {
     final currentBlock = _blocks[index];
     final controller = _controllers[index];
@@ -606,6 +648,14 @@ class BlockNoteEditorState extends State<BlockNoteEditor> {
         final prevText = prevController.text;
         final currentText = controller.text;
         final mergedText = prevText + currentText;
+        final movedAttributes = [
+          for (final attr in controller.attributes)
+            InlineAttribute(
+              start: attr.start + prevText.length,
+              end: attr.end + prevText.length,
+              type: attr.type,
+            ),
+        ];
 
         setState(() {
           _blocks.removeAt(index);
@@ -619,6 +669,7 @@ class BlockNoteEditorState extends State<BlockNoteEditor> {
             text: mergedText,
             selection: TextSelection.collapsed(offset: prevText.length),
           );
+          prevController.attributes = [...prevController.attributes, ...movedAttributes];
 
           _activeBlockIndex = prevIndex;
         });
