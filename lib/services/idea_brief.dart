@@ -69,10 +69,18 @@ String buildIdeaBrief(Note root, List<Note> all) {
   return out.toString();
 }
 
-String _quote(String value) => "'${value.replaceAll("'", "'\\\"'\\\"'")}'";
+String _quote(String value) => "'${value.replaceAll("'", r"'\''")}'";
+
+// Escapes text for use inside double quotes in a shell.
+String _dq(String value) => value.replaceAllMapped(RegExp(r'[\\$`"]'), (m) => '\\${m[0]}');
+
+// A path as a shell word. A leading ~/ must stay unquoted to expand, so it
+// becomes "$HOME/..." instead.
+String _shellPath(String path) =>
+    path.startsWith('~/') ? '"\$HOME/${_dq(path.substring(2))}"' : _quote(path);
 
 String ideaAgentCommand(IdeaAgent agent, String briefPath) => switch (agent) {
-  IdeaAgent.codex => 'codex "\$(cat ${_quote(briefPath)})"',
-  IdeaAgent.claudeCode => 'claude "Read ${_quote(briefPath)} and start on it"',
+  IdeaAgent.codex => 'codex "\$(cat ${_shellPath(briefPath)})"',
+  IdeaAgent.claudeCode => 'claude "Read ${_dq(briefPath)} and start on it"',
   IdeaAgent.other => 'Paste the brief into your agent, or point it at ${_quote(briefPath)}',
 };

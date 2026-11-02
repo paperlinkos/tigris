@@ -773,13 +773,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   padding: const EdgeInsets.only(left: 26.0),
                   child: _buildBreadcrumbs(),
                 ),
-                if (_note!.isIdea && _note!.parentId == null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 26, top: 12),
-                    child: Wrap(spacing: 6, runSpacing: 6, children: [for (final status in Note.ideaStatuses) ChoiceChip(label: Text(status), selected: _note!.ideaStatus == status, onSelected: (_) => _setIdeaStatus(status))]),
-                  ),
-                if (_note!.handedOffTo != null && _note!.handedOffAt != null)
-                  Padding(padding: const EdgeInsets.only(left: 26, top: 8), child: Text('Handed off to ${_note!.handedOffTo} on ${_shortDate(_note!.handedOffAt!)}.', style: AppTypography.uiLabel(fontSize: 12, color: context.appTextSecondary))),
+
 
                 Padding(
                   padding: const EdgeInsets.only(left: 26.0),
@@ -808,6 +802,24 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   onEditingComplete: _focusBody,
                   ),
                 ),
+                if (_note!.isIdea && _note!.parentId == null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 26, top: 12),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final status in Note.ideaStatuses)
+                          _IdeaStatusButton(
+                            label: status,
+                            selected: _note!.ideaStatus == status,
+                            onPressed: () => _setIdeaStatus(status),
+                          ),
+                      ],
+                    ),
+                  ),
+                if (_note!.handedOffTo != null && _note!.handedOffAt != null)
+                  Padding(padding: const EdgeInsets.only(left: 26, top: 8), child: Text('Handed off to ${_note!.handedOffTo} on ${_shortDate(_note!.handedOffAt!)}.', style: AppTypography.uiLabel(fontSize: 12, color: context.appTextSecondary))),
                 const SizedBox(height: 16.0),
 
                 // Block-based continuous Document Editor
@@ -1119,6 +1131,43 @@ class _NewPageDialogState extends State<_NewPageDialog> {
           child: const Text('Create'),
         ),
       ],
+    );
+  }
+}
+
+
+class _IdeaStatusButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+  const _IdeaStatusButton({required this.label, required this.selected, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: ExcludeSemantics(
+        child: Material(
+          color: selected ? context.appTextPrimary : Colors.transparent,
+          shape: StadiumBorder(side: BorderSide(color: selected ? context.appTextPrimary : context.appBorder)),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              child: Text(
+                label,
+                style: AppTypography.uiLabel(
+                  fontSize: 13,
+                  color: selected ? context.appBg : context.appTextPrimary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
