@@ -58,3 +58,10 @@ This replaces the flat list and the "special notebook" idea above.
 - **Ship to agent:** from any idea, one button. The brief is built from the idea and all its sub-notes, with the same copy / save / run choices as before.
 
 Stages now: 1 = the Ideas workspace plus Ship to agent. 2 = Brainstorm chat. 3 = Tigris MCP server so agents read Ready ideas directly, and write results back.
+
+## Revision 3 (2 Nov 2026): Brainstorm provider and privacy
+
+- Brainstorm is a session-only chat panel for an open idea. It sends that idea and its nested pages as context; chat messages are not added to notes, sync, backups or briefs.
+- The default is OpenRouter's `openrouter/free` model router. The user supplies their own API key, so free-provider limits apply to their account.
+- Settings also offer Gemini and a custom OpenAI-compatible chat-completions endpoint/model. This keeps the feature usable with a provider of the user's choosing where it supports that standard.
+- API keys and their local provider settings are held only in OS-backed secure storage on the current device, never in the Tigris note store.

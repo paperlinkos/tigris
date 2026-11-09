@@ -12,6 +12,7 @@ import '../services/backup_service.dart';
 import '../services/drive_account.dart';
 import '../widgets/calm_scaffold.dart';
 import '../widgets/desktop_panel.dart';
+import '../services/idea_chat_service.dart';
 import 'glossary_screen.dart';
 import 'login_screen.dart';
 import 'notion_import_screen.dart';
@@ -378,18 +379,15 @@ class SettingsScreen extends StatelessWidget {
           Divider(color: context.appBorderSubtle),
           _buildSettingsItem(
             context,
-            title: 'Gemini AI Backend',
-            subtitle: 'Securely connected via Firebase Cloud Functions',
+            title: 'Ideas Brainstorm AI',
+            subtitle:
+                'Set a private API key for OpenRouter, Gemini, or another compatible provider',
             icon: Icons.auto_awesome,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'AI is securely connected via Firebase Cloud Functions.',
-                  ),
-                ),
-              );
-            },
+            onTap: () => openScreen(
+              context,
+              (_) => const _IdeaAiSettingsScreen(),
+              height: 560,
+            ),
           ),
           Divider(color: context.appBorderSubtle),
           _buildSettingsItem(
@@ -758,4 +756,140 @@ class SettingsScreen extends StatelessWidget {
       },
     );
   }
+}
+
+class _IdeaAiSettingsScreen extends StatefulWidget {
+  const _IdeaAiSettingsScreen();
+  @override
+  State<_IdeaAiSettingsScreen> createState() => _IdeaAiSettingsScreenState();
+}
+
+class _IdeaAiSettingsScreenState extends State<_IdeaAiSettingsScreen> {
+  final _credentials = SecureIdeaChatCredentials();
+  late final TextEditingController _endpoint;
+  late final TextEditingController _model;
+  final _key = TextEditingController();
+  String _provider = 'OpenRouter';
+  bool _loading = true;
+  @override
+  void initState() {
+    super.initState();
+    _endpoint = TextEditingController();
+    _model = TextEditingController();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final setting = await _credentials.loadSettings();
+    if (!mounted) return;
+    setState(() {
+      _provider = setting.provider;
+      _endpoint.text = setting.endpoint;
+      _model.text = setting.model;
+      _loading = false;
+    });
+  }
+
+  void _choose(String value) {
+    final preset = value == 'Gemini'
+        ? IdeaChatSettings.gemini
+        : IdeaChatSettings.openRouter;
+    setState(() {
+      _provider = value;
+      if (value != 'Custom') {
+        _endpoint.text = preset.endpoint;
+        _model.text = preset.model;
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    if (_endpoint.text.trim().isEmpty ||
+        _model.text.trim().isEmpty ||
+        _key.text.trim().isEmpty) {
+      return;
+    }
+    await _credentials.save(
+      IdeaChatSettings(
+        provider: _provider,
+        endpoint: _endpoint.text.trim(),
+        model: _model.text.trim(),
+      ),
+      _key.text,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Brainstorm AI settings saved on this device.'),
+        ),
+      );
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _endpoint.dispose();
+    _model.dispose();
+    _key.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Ideas Brainstorm AI')),
+    body: _loading
+        ? const Center(child: CircularProgressIndicator())
+        : ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              const Text(
+                'Your key is stored only in this device’s secure storage. It is never added to notes, sync, backups, or briefs.',
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _provider,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'OpenRouter',
+                    child: Text('OpenRouter free (recommended)'),
+                  ),
+                  DropdownMenuItem(value: 'Gemini', child: Text('Gemini')),
+                  DropdownMenuItem(
+                    value: 'Custom',
+                    child: Text('Custom OpenAI-compatible'),
+                  ),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    _choose(v);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _endpoint,
+                decoration: const InputDecoration(
+                  labelText: 'Chat completions endpoint',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _model,
+                decoration: const InputDecoration(labelText: 'Model'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _key,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'API key'),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: _save,
+                child: const Text('Save API settings'),
+              ),
+            ],
+          ),
+  );
 }

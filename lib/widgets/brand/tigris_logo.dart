@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_typography.dart';
 import '../../app/theme/context_theme_extensions.dart';
 
+/// The Tigris mark is a striped T: a bar with a gold dot at one end and a stem
+/// that tapers to a point like a stripe. On its own it is the app icon. In the
+/// wordmark it is the "t" of "tigris".
 class TigrisLogo extends StatelessWidget {
   final double size;
   final Color? color;
@@ -19,36 +22,52 @@ class TigrisLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primaryColor = color ?? context.appTextPrimary;
-    final goldAccent = accentColor ?? (context.isDarkMode ? const Color(0xFFF59E0B) : const Color(0xFFD97706));
+    final goldAccent = accentColor ??
+        (context.isDarkMode ? const Color(0xFFF59E0B) : const Color(0xFFD97706));
 
-    final logoWidget = SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: TigrisLogoPainter(
-          primaryColor: primaryColor,
-          accentColor: goldAccent,
+    Widget mark(double side) => SizedBox(
+          width: side,
+          height: side,
+          child: CustomPaint(
+            painter: TigrisLogoPainter(
+              primaryColor: primaryColor,
+              accentColor: goldAccent,
+            ),
+          ),
+        );
+
+    if (!showWordmark) {
+      return Semantics(label: 'Tigris', image: true, child: mark(size));
+    }
+
+    // The mark stands in for the "t", so it is as tall as the letters and its
+    // stem sits on the same baseline as "igris".
+    final fontSize = size * 0.9;
+    final markSide = size;
+    return Semantics(
+      label: 'Tigris',
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Baseline(
+              baseline: markSide * TigrisLogoPainter.stemTipY,
+              baselineType: TextBaseline.alphabetic,
+              child: mark(markSide),
+            ),
+            Text(
+              'igris',
+              style: AppTypography.display(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w700,
+                color: primaryColor,
+              ).copyWith(letterSpacing: -fontSize * 0.02),
+            ),
+          ],
         ),
       ),
-    );
-
-    if (!showWordmark) return logoWidget;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        logoWidget,
-        SizedBox(width: size * 0.35),
-        Text(
-          'TIGRIS',
-          style: AppTypography.display(
-            fontSize: size * 0.65,
-            fontWeight: FontWeight.w700,
-            color: primaryColor,
-          ).copyWith(letterSpacing: 2.0),
-        ),
-      ],
     );
   }
 }
@@ -62,60 +81,44 @@ class TigrisLogoPainter extends CustomPainter {
     required this.accentColor,
   });
 
+  /// Where the stem ends, as a fraction of the height.
+  static const double stemTipY = 0.92;
+
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final strokeWidth = w * 0.085;
-
-    final paintPrimary = Paint()
+    final primary = Paint()
       ..color = primaryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final paintAccent = Paint()
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    final accent = Paint()
       ..color = accentColor
-      ..style = PaintingStyle.fill;
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
 
-    // Draw stylized 'T' stream & page fold
-    final topBar = Path()
-      ..moveTo(w * 0.15, h * 0.22)
-      ..lineTo(w * 0.85, h * 0.22);
-    canvas.drawPath(topBar, paintPrimary);
+    // Bar.
+    final bar = RRect.fromLTRBR(
+      w * 0.12, h * 0.12, w * 0.88, h * 0.30, Radius.circular(w * 0.09),
+    );
+    canvas.drawRRect(bar, primary);
 
-    // Stem curve
+    // Stem, tapering to a point.
     final stem = Path()
-      ..moveTo(w * 0.5, h * 0.22)
-      ..cubicTo(
-        w * 0.5, h * 0.55,
-        w * 0.35, h * 0.82,
-        w * 0.8, h * 0.82,
-      );
-    canvas.drawPath(stem, paintPrimary);
+      ..moveTo(w * 0.42, h * 0.30)
+      ..lineTo(w * 0.58, h * 0.30)
+      ..quadraticBezierTo(w * 0.60, h * 0.65, w * 0.50, h * stemTipY)
+      ..quadraticBezierTo(w * 0.40, h * 0.65, w * 0.42, h * 0.30)
+      ..close();
+    canvas.drawPath(stem, primary);
 
-    // Complementary page leaf curve
-    final leaf = Path()
-      ..moveTo(w * 0.2, h * 0.5)
-      ..cubicTo(
-        w * 0.2, h * 0.75,
-        w * 0.35, h * 0.85,
-        w * 0.48, h * 0.85,
-      );
-    final paintLeaf = Paint()
-      ..color = primaryColor.withValues(alpha: 0.7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth * 0.85
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(leaf, paintLeaf);
-
-    // Accent amber gold dot
-    canvas.drawCircle(Offset(w * 0.85, h * 0.22), strokeWidth * 0.75, paintAccent);
+    // Gold dot on the end of the bar.
+    canvas.drawCircle(Offset(w * 0.79, h * 0.21), w * 0.09, accent);
   }
 
   @override
   bool shouldRepaint(covariant TigrisLogoPainter oldDelegate) {
-    return oldDelegate.primaryColor != primaryColor || oldDelegate.accentColor != accentColor;
+    return oldDelegate.primaryColor != primaryColor ||
+        oldDelegate.accentColor != accentColor;
   }
 }

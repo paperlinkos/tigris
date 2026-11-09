@@ -14,6 +14,7 @@ import '../widgets/editor/block_note_editor.dart';
 import '../widgets/editor/page_block_picker_sheet.dart';
 import '../widgets/desktop_panel.dart';
 import '../widgets/ideas/ship_to_agent_panel.dart';
+import '../widgets/ideas/brainstorm_panel.dart';
 
 class NoteDetailScreen extends StatefulWidget {
   final String noteId;
@@ -57,7 +58,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   late final TextEditingController _titleController;
   final FocusNode _titleFocusNode = FocusNode();
-  final GlobalKey<State<BlockNoteEditor>> _editorKey = GlobalKey<State<BlockNoteEditor>>();
+  final GlobalKey<State<BlockNoteEditor>> _editorKey =
+      GlobalKey<State<BlockNoteEditor>>();
 
   List<NoteBlock> _currentBlocks = [];
 
@@ -73,7 +75,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   NoteRepository? get _repo =>
       widget.noteRepository ??
       _scopedRepo ??
-      (mounted && !_disposing ? RepositoryScope.maybeOf(context)?.noteRepository : null);
+      (mounted && !_disposing
+          ? RepositoryScope.maybeOf(context)?.noteRepository
+          : null);
 
   @override
   void initState() {
@@ -95,7 +99,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   void didUpdateWidget(covariant NoteDetailScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     final title = widget.externalTitle;
-    if (title != oldWidget.externalTitle && title != null && title != _titleController.text) {
+    if (title != oldWidget.externalTitle &&
+        title != null &&
+        title != _titleController.text) {
       _titleController.text = title;
     }
     if (widget.focusBodyRequest != oldWidget.focusBodyRequest) {
@@ -151,10 +157,17 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (repo == null) return;
 
     final updatedTitle = _titleController.text.trim();
-    final blocksJson = jsonEncode(_currentBlocks.map((b) => b.toJson()).toList());
+    final blocksJson = jsonEncode(
+      _currentBlocks.map((b) => b.toJson()).toList(),
+    );
     final plainTextContent = _currentBlocks.map((b) => b.content).join('\n');
     final pageBlockNoteIds = _currentBlocks
-        .where((b) => b.type == BlockType.page && b.targetNoteId != null && b.targetNoteId!.isNotEmpty)
+        .where(
+          (b) =>
+              b.type == BlockType.page &&
+              b.targetNoteId != null &&
+              b.targetNoteId!.isNotEmpty,
+        )
         .map((b) => b.targetNoteId!)
         .toSet()
         .toList();
@@ -185,10 +198,17 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (repo == null) return;
 
     final updatedTitle = _titleController.text.trim();
-    final blocksJson = jsonEncode(_currentBlocks.map((b) => b.toJson()).toList());
+    final blocksJson = jsonEncode(
+      _currentBlocks.map((b) => b.toJson()).toList(),
+    );
     final plainTextContent = _currentBlocks.map((b) => b.content).join('\n');
     final pageBlockNoteIds = _currentBlocks
-        .where((b) => b.type == BlockType.page && b.targetNoteId != null && b.targetNoteId!.isNotEmpty)
+        .where(
+          (b) =>
+              b.type == BlockType.page &&
+              b.targetNoteId != null &&
+              b.targetNoteId!.isNotEmpty,
+        )
         .map((b) => b.targetNoteId!)
         .toSet()
         .toList();
@@ -231,12 +251,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       return;
     }
 
-    final ancestors = widget.navigationAncestors ?? await repo.getAncestorPath(note.id);
+    final ancestors =
+        widget.navigationAncestors ?? await repo.getAncestorPath(note.id);
     final rawChildren = await repo.getChildNotes(note.id);
 
     final children = <Note>[];
     for (final child in rawChildren) {
-      final isAbandoned = (child.title.trim().isEmpty || child.title == 'Untitled') &&
+      final isAbandoned =
+          (child.title.trim().isEmpty || child.title == 'Untitled') &&
           child.content.trim().isEmpty &&
           child.childrenIds.isEmpty;
       if (isAbandoned) {
@@ -291,7 +313,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     }
 
     if (_activeNoteIdsInStack.contains(ancestor.id)) {
-      Navigator.of(context).popUntil((route) => route.settings.name == '/note/${ancestor.id}');
+      Navigator.of(
+        context,
+      ).popUntil((route) => route.settings.name == '/note/${ancestor.id}');
     } else {
       final updated = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
@@ -393,7 +417,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             color: context.appTextSecondary,
           ),
         ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: 16.0,
+          vertical: 12.0,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -474,7 +501,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   Future<void> _openUnderstandNote() async {
     if (_note == null) return;
-    final aiService = RepositoryScope.maybeOf(context)?.aiService ?? const LocalAiService();
+    final aiService =
+        RepositoryScope.maybeOf(context)?.aiService ?? const LocalAiService();
     await _saveCurrentChanges();
     if (!mounted) return;
 
@@ -489,7 +517,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   Future<void> _openAiActions() async {
     if (_note == null) return;
-    final aiService = RepositoryScope.maybeOf(context)?.aiService ?? const LocalAiService();
+    final aiService =
+        RepositoryScope.maybeOf(context)?.aiService ?? const LocalAiService();
     await _saveCurrentChanges();
     if (!mounted) return;
 
@@ -512,7 +541,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   Future<void> _setIdeaStatus(String status) async {
     final repo = _repo;
     if (_note == null || repo == null) return;
-    final updated = _note!.copyWith(ideaStatus: status, updatedAt: DateTime.now());
+    final updated = _note!.copyWith(
+      ideaStatus: status,
+      updatedAt: DateTime.now(),
+    );
     await repo.saveNote(updated);
     if (mounted) setState(() => _note = updated);
   }
@@ -524,10 +556,38 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     var root = _note!;
     final byId = {for (final note in all) note.id: note};
     final seen = <String>{};
-    while (root.parentId != null && seen.add(root.id) && byId[root.parentId] != null) { root = byId[root.parentId]!; }
+    while (root.parentId != null &&
+        seen.add(root.id) &&
+        byId[root.parentId] != null) {
+      root = byId[root.parentId]!;
+    }
     if (!mounted) return;
-    await openScreen(context, (_) => ShipToAgentPanel(root: root, notes: all, repository: repo));
+    await openScreen(
+      context,
+      (_) => ShipToAgentPanel(root: root, notes: all, repository: repo),
+    );
     await _loadNoteData();
+  }
+
+  Future<void> _openBrainstorm() async {
+    final repo = _repo;
+    if (_note == null || repo == null) return;
+    final all = await repo.getAllNotes();
+    var root = _note!;
+    final byId = {for (final note in all) note.id: note};
+    final seen = <String>{};
+    while (root.parentId != null &&
+        seen.add(root.id) &&
+        byId[root.parentId] != null) {
+      root = byId[root.parentId]!;
+    }
+    if (!mounted) return;
+    await openScreen(
+      context,
+      (_) => BrainstormPanel(root: root, notes: all),
+      width: 560,
+      height: 720,
+    );
   }
 
   void _showAddBlockPicker() {
@@ -578,7 +638,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   },
                 ),
                 ListTile(
-                  leading: const Text('•', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  leading: const Text(
+                    '•',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
                   title: const Text('Bullet List'),
                   onTap: () {
                     Navigator.of(ctx).pop();
@@ -590,7 +653,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   },
                 ),
                 ListTile(
-                  leading: const Text('1.', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  leading: const Text(
+                    '1.',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                   title: const Text('Numbered List'),
                   onTap: () {
                     Navigator.of(ctx).pop();
@@ -616,34 +682,34 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                       ),
                     );
 
-                  if (selectedNoteId != null && mounted) {
+                    if (selectedNoteId != null && mounted) {
+                      final state = _editorKey.currentState;
+                      if (state != null) {
+                        dynamic dynamicState = state;
+                        dynamicState.insertPageBlock(selectedNoteId);
+                      }
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.horizontal_rule),
+                  title: const Text('Divider'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
                     final state = _editorKey.currentState;
                     if (state != null) {
                       dynamic dynamicState = state;
-                      dynamicState.insertPageBlock(selectedNoteId);
+                      dynamicState.insertDividerBlock();
                     }
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.horizontal_rule),
-                title: const Text('Divider'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  final state = _editorKey.currentState;
-                  if (state != null) {
-                    dynamic dynamicState = state;
-                    dynamicState.insertDividerBlock();
-                  }
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
   }
 
   @override
@@ -664,7 +730,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           automaticallyImplyLeading: widget.onNavigateToNote == null,
           leading: widget.onNavigateToNote == null
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18.0),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18.0,
+                  ),
                   color: context.appTextPrimary,
                   onPressed: () => Navigator.of(context).pop(),
                 )
@@ -673,7 +742,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         body: Center(
           child: Text(
             'Note not found.',
-            style: AppTypography.body(fontSize: 16.0, color: context.appTextSecondary),
+            style: AppTypography.body(
+              fontSize: 16.0,
+              color: context.appTextSecondary,
+            ),
           ),
         ),
       );
@@ -694,7 +766,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           automaticallyImplyLeading: widget.onNavigateToNote == null,
           leading: widget.onNavigateToNote == null
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18.0),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18.0,
+                  ),
                   color: context.appTextPrimary,
                   onPressed: _handleBack,
                 )
@@ -704,8 +779,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           titleSpacing: _isEmbedded ? widget.embeddedTitleInset : null,
           title: _isEmbedded ? _buildEmbeddedBreadcrumb() : null,
           actions: [
+            if (_note!.isIdea && MediaQuery.sizeOf(context).width >= 600)
+              TextButton(
+                onPressed: _openBrainstorm,
+                child: const Text('Brainstorm'),
+              ),
             if (_note!.isIdea)
-              TextButton(onPressed: _shipToAgent, child: const Text('Ship to agent')),
+              TextButton(
+                onPressed: _shipToAgent,
+                child: const Text('Ship to agent'),
+              ),
             TextButton(
               onPressed: _openAiActions,
               style: TextButton.styleFrom(
@@ -724,7 +807,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             PopupMenuButton<String>(
               key: const Key('note_more_menu'),
               tooltip: 'More',
-              icon: Icon(Icons.more_horiz_rounded, color: context.appTextPrimary),
+              icon: Icon(
+                Icons.more_horiz_rounded,
+                color: context.appTextPrimary,
+              ),
               color: context.appSurface,
               elevation: 3,
               shape: RoundedRectangleBorder(
@@ -741,104 +827,136 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     _confirmDelete();
                   case 'ship':
                     _shipToAgent();
+                  case 'brainstorm':
+                    _openBrainstorm();
                 }
               },
               itemBuilder: (context) => [
-                if (_note!.isIdea) const PopupMenuItem(value: 'ship', child: Text('Ship to agent')),
-                PopupMenuItem(value: 'add_page', child: Text('Add page inside')),
-                PopupMenuItem(value: 'understand', child: Text('Understand note')),
+                if (_note!.isIdea)
+                  const PopupMenuItem(
+                    value: 'brainstorm',
+                    child: Text('Brainstorm'),
+                  ),
+                if (_note!.isIdea)
+                  const PopupMenuItem(
+                    value: 'ship',
+                    child: Text('Ship to agent'),
+                  ),
+                PopupMenuItem(
+                  value: 'add_page',
+                  child: Text('Add page inside'),
+                ),
+                PopupMenuItem(
+                  value: 'understand',
+                  child: Text('Understand note'),
+                ),
                 PopupMenuItem(value: 'delete', child: Text('Delete note')),
               ],
             ),
             const SizedBox(width: 4.0),
           ],
         ),
-        bottomNavigationBar: _isWritingBody && !_isEmbedded ? _buildFormattingToolbar() : null,
+        bottomNavigationBar: _isWritingBody && !_isEmbedded
+            ? _buildFormattingToolbar()
+            : null,
         body: SafeArea(
           // Tapping the empty page below the text continues writing there.
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => _focusBody(atEnd: true),
             child: SingleChildScrollView(
-            padding: const EdgeInsets.only(right: 24.0, top: 12.0, bottom: 12.0),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720.0),
-                child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // The editor's drag-handle gutter (26px) sits in the left margin,
-                // so its text lines up with the title.
-                Padding(
-                  padding: const EdgeInsets.only(left: 26.0),
-                  child: _buildBreadcrumbs(),
-                ),
+              padding: const EdgeInsets.only(
+                right: 24.0,
+                top: 12.0,
+                bottom: 12.0,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // The editor's drag-handle gutter (26px) sits in the left margin,
+                      // so its text lines up with the title.
+                      Padding(
+                        padding: const EdgeInsets.only(left: 26.0),
+                        child: _buildBreadcrumbs(),
+                      ),
 
-
-                Padding(
-                  padding: const EdgeInsets.only(left: 26.0),
-                  child: TextField(
-                  key: const Key('note_title_field'),
-                  controller: _titleController,
-                  focusNode: _titleFocusNode,
-                  autofocus: widget.initialNote?.title.isEmpty ?? false,
-                  style: AppTypography.display(
-                    fontSize: 32.0,
-                    color: context.appTextPrimary,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Untitled',
-                    hintStyle: TextStyle(
-                      color: context.appTextTertiary,
-                    ),
-                    border: InputBorder.none,
-                    isCollapsed: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  maxLines: null,
-                  textCapitalization: TextCapitalization.sentences,
-                  textInputAction: TextInputAction.next,
-                  // Replaces the default next-field move, so focus moves only once.
-                  onEditingComplete: _focusBody,
-                  ),
-                ),
-                if (_note!.isIdea && _note!.parentId == null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 26, top: 12),
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final status in Note.ideaStatuses)
-                          _IdeaStatusButton(
-                            label: status,
-                            selected: _note!.ideaStatus == status,
-                            onPressed: () => _setIdeaStatus(status),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 26.0),
+                        child: TextField(
+                          key: const Key('note_title_field'),
+                          controller: _titleController,
+                          focusNode: _titleFocusNode,
+                          autofocus: widget.initialNote?.title.isEmpty ?? false,
+                          style: AppTypography.display(
+                            fontSize: 32.0,
+                            color: context.appTextPrimary,
                           ),
-                      ],
-                    ),
+                          decoration: InputDecoration(
+                            hintText: 'Untitled',
+                            hintStyle: TextStyle(
+                              color: context.appTextTertiary,
+                            ),
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          maxLines: null,
+                          textCapitalization: TextCapitalization.sentences,
+                          textInputAction: TextInputAction.next,
+                          // Replaces the default next-field move, so focus moves only once.
+                          onEditingComplete: _focusBody,
+                        ),
+                      ),
+                      if (_note!.isIdea && _note!.parentId == null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 26, top: 12),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              for (final status in Note.ideaStatuses)
+                                _IdeaStatusButton(
+                                  label: status,
+                                  selected: _note!.ideaStatus == status,
+                                  onPressed: () => _setIdeaStatus(status),
+                                ),
+                            ],
+                          ),
+                        ),
+                      if (_note!.handedOffTo != null &&
+                          _note!.handedOffAt != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 26, top: 8),
+                          child: Text(
+                            'Handed off to ${_note!.handedOffTo} on ${_shortDate(_note!.handedOffAt!)}.',
+                            style: AppTypography.uiLabel(
+                              fontSize: 12,
+                              color: context.appTextSecondary,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 16.0),
+
+                      // Block-based continuous Document Editor
+                      BlockNoteEditor(
+                        key: _editorKey,
+                        blocks: _currentBlocks,
+                        noteRepository: _repo,
+                        onChanged: _onBlocksChanged,
+                        onOpenNote: _openPageBlockNote,
+                        desktopFormatting: _isEmbedded,
+                        onRequestNewPage: _addPageInside,
+                      ),
+
+                      const SizedBox(height: 56.0),
+                    ],
                   ),
-                if (_note!.handedOffTo != null && _note!.handedOffAt != null)
-                  Padding(padding: const EdgeInsets.only(left: 26, top: 8), child: Text('Handed off to ${_note!.handedOffTo} on ${_shortDate(_note!.handedOffAt!)}.', style: AppTypography.uiLabel(fontSize: 12, color: context.appTextSecondary))),
-                const SizedBox(height: 16.0),
-
-                // Block-based continuous Document Editor
-                BlockNoteEditor(
-                  key: _editorKey,
-                  blocks: _currentBlocks,
-                  noteRepository: _repo,
-                  onChanged: _onBlocksChanged,
-                  onOpenNote: _openPageBlockNote,
-                  desktopFormatting: _isEmbedded,
-                  onRequestNewPage: _addPageInside,
                 ),
-
-                const SizedBox(height: 56.0),
-              ],
-            ),
               ),
             ),
-          ),
           ),
         ),
       ),
@@ -854,10 +972,22 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   }
 
   String _shortDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${date.day} ${months[date.month - 1]}';
   }
-
 
   bool get _isEmbedded => widget.onNavigateToNote != null;
 
@@ -866,7 +996,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final shown = _ancestors.length > 3
         ? [_ancestors.first, null, ..._ancestors.sublist(_ancestors.length - 2)]
         : _ancestors;
-    final style = AppTypography.uiLabel(fontSize: 12.0, fontWeight: FontWeight.w400, color: context.appTextSecondary);
+    final style = AppTypography.uiLabel(
+      fontSize: 12.0,
+      fontWeight: FontWeight.w400,
+      color: context.appTextSecondary,
+    );
     return Row(
       key: const Key('note_breadcrumb'),
       children: [
@@ -922,9 +1056,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 onTap: () => _navigateToAncestor(_ancestors[i]),
                 borderRadius: BorderRadius.circular(4.0),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4.0,
+                    horizontal: 2.0,
+                  ),
                   child: Text(
-                    _ancestors[i].title.isEmpty ? 'Untitled' : _ancestors[i].title,
+                    _ancestors[i].title.isEmpty
+                        ? 'Untitled'
+                        : _ancestors[i].title,
                     style: AppTypography.uiLabel(
                       fontSize: 13.0,
                       fontWeight: FontWeight.w500,
@@ -1038,12 +1177,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             const Spacer(),
             if (bottomInset > 0)
               IconButton(
-              icon: Icon(Icons.keyboard_hide_rounded, size: 20.0, color: context.appTextTertiary),
-              onPressed: () {
-                FocusScope.of(context).unfocus();
-              },
-              tooltip: 'Hide keyboard',
-            ),
+                icon: Icon(
+                  Icons.keyboard_hide_rounded,
+                  size: 20.0,
+                  color: context.appTextTertiary,
+                ),
+                onPressed: () {
+                  FocusScope.of(context).unfocus();
+                },
+                tooltip: 'Hide keyboard',
+              ),
           ],
         ),
       ),
@@ -1075,13 +1218,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               : null,
           child: Text(
             label,
-            style: AppTypography.uiHeadline(
-              fontSize: 15.0,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-              color: context.appTextPrimary,
-            ).copyWith(
-              fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
-            ),
+            style:
+                AppTypography.uiHeadline(
+                  fontSize: 15.0,
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+                  color: context.appTextPrimary,
+                ).copyWith(
+                  fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
+                ),
           ),
         ),
       ),
@@ -1111,7 +1255,10 @@ class _NewPageDialogState extends State<_NewPageDialog> {
       backgroundColor: context.appSurface,
       title: Text(
         'New page inside this note',
-        style: AppTypography.title(fontSize: 18.0, color: context.appTextPrimary),
+        style: AppTypography.title(
+          fontSize: 18.0,
+          color: context.appTextPrimary,
+        ),
       ),
       content: TextField(
         key: const Key('new_page_name_field'),
@@ -1127,7 +1274,8 @@ class _NewPageDialogState extends State<_NewPageDialog> {
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(_nameController.text.trim()),
+          onPressed: () =>
+              Navigator.of(context).pop(_nameController.text.trim()),
           child: const Text('Create'),
         ),
       ],
@@ -1135,12 +1283,15 @@ class _NewPageDialogState extends State<_NewPageDialog> {
   }
 }
 
-
 class _IdeaStatusButton extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onPressed;
-  const _IdeaStatusButton({required this.label, required this.selected, required this.onPressed});
+  const _IdeaStatusButton({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1151,7 +1302,11 @@ class _IdeaStatusButton extends StatelessWidget {
       child: ExcludeSemantics(
         child: Material(
           color: selected ? context.appTextPrimary : Colors.transparent,
-          shape: StadiumBorder(side: BorderSide(color: selected ? context.appTextPrimary : context.appBorder)),
+          shape: StadiumBorder(
+            side: BorderSide(
+              color: selected ? context.appTextPrimary : context.appBorder,
+            ),
+          ),
           child: InkWell(
             customBorder: const StadiumBorder(),
             onTap: onPressed,

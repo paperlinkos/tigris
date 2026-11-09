@@ -14,10 +14,10 @@ void main() {
 
     expect(find.byType(TigrisLogo), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
-    expect(find.text('TIGRIS'), findsNothing);
+    expect(find.text('igris'), findsNothing);
   });
 
-  testWidgets('TigrisLogo with showWordmark displays TIGRIS title', (WidgetTester tester) async {
+  testWidgets('TigrisLogo with showWordmark shows the T mark and igris', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -30,6 +30,7 @@ void main() {
     );
 
     expect(find.byType(TigrisLogo), findsOneWidget);
-    expect(find.text('TIGRIS'), findsOneWidget);
+    expect(find.text('igris'), findsOneWidget);
+    expect(find.bySemanticsLabel('Tigris'), findsOneWidget);
   });
 }
